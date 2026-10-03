@@ -4,7 +4,7 @@ import { seed } from "./seed";
 import { registerLogoUrls, registerWebsites } from "./logo";
 import { deleteFile, putFile } from "./filedb";
 import { uid } from "./format";
-import { approve, ingest, SAMPLE_GATE_IDS, setStatus, type IngestItem, type IngestSummary } from "./gate";
+import { approve, ingest, isOpen, SAMPLE_GATE_IDS, setStatus, type IngestItem, type IngestSummary } from "./gate";
 import { parseGatePayload, type GateStatus } from "@job-hunt-os/contracts";
 
 const KEY = "jhos.data.v2";
@@ -163,6 +163,15 @@ function makeActions(set: (fn: (d: AppData) => AppData) => void, get: () => AppD
       const res = ingest(get(), parsed.items);
       set(() => res.data);
       return { ok: true, summary: res.summary };
+    },
+    /** Applies decisions the server already holds (made on another device or in Telegram). Only items still awaiting a decision here change. */
+    applyServerDecisions(decisions: { remoteId: string; status: GateStatus }[]) {
+      for (const x of decisions) {
+        const g = get().gate.find((i) => i.remoteId === x.remoteId);
+        if (!g || !isOpen(g) || g.gateStatus === x.status) continue;
+        if (x.status === "approved") set(() => approve(get(), g.id).data);
+        else set((d) => setStatus(d, g.id, x.status));
+      }
     },
     setGateStatus: (id: string, status: GateStatus) => set((d) => setStatus(d, id, status)),
     markGateSeen: (id: string) => set((d) => ({ ...d, gate: d.gate.map((g) => (g.id === id && !g.seen ? { ...g, seen: true } : g)) })),

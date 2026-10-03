@@ -1,7 +1,7 @@
 // Pulls GATE Scout discoveries from the server API and reports Approve/Dismiss decisions back.
 // The sync key is kept in its own localStorage entry (not in app data) so exports/backups never contain it.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { gateEnvelopeSchema } from "@job-hunt-os/contracts";
+import { gateEnvelopeSchema, type GateStatus } from "@job-hunt-os/contracts";
 import { useData } from "./store";
 
 const KEY = "jhos.gate.sync";
@@ -55,7 +55,7 @@ export function useGateSyncRunner() {
       for (let page = 0; page < 20; page++) {
         const res = await fetch(`${base(c)}/v1/desktop/gate/opportunities?since=${encodeURIComponent(since)}`, { headers: headers(c) });
         if (!res.ok) throw new Error(res.status === 401 ? "The sync key was rejected (401)." : `Server returned ${res.status}.`);
-        const body = (await res.json()) as { items?: { gate_opportunity_id: string; updated_at?: string; envelope: unknown }[] };
+        const body = (await res.json()) as { items?: { gate_opportunity_id: string; gate_status?: string; updated_at?: string; envelope: unknown }[] };
         const batch = body.items ?? [];
         const items = batch.flatMap((i) => {
           const p = gateEnvelopeSchema.safeParse(i.envelope);
@@ -63,6 +63,8 @@ export function useGateSyncRunner() {
           return [{ envelope: p.data, remoteId: i.gate_opportunity_id }];
         });
         if (items.length) created += act.ingestGate(items).created;
+        // decisions made elsewhere (another device, Telegram) flow back; an item you already decided here is never changed
+        act.applyServerDecisions(batch.filter((i) => ["approved", "dismissed", "saved_for_later", "expired"].includes(i.gate_status ?? "")).map((i) => ({ remoteId: i.gate_opportunity_id, status: i.gate_status as GateStatus })));
         const last = batch.at(-1)?.updated_at;
         // step back 1ms so items sharing the boundary timestamp are never skipped (re-seeing one is harmless: ingest dedupes)
         if (last) since = new Date(Date.parse(last) - 1).toISOString();
@@ -95,7 +97,8 @@ export function useGateSyncRunner() {
     for (const g of data.gate) {
       const prev = pushed.current.get(g.id);
       pushed.current.set(g.id, g.gateStatus);
-      if (prev === g.gateStatus || !g.remoteId) continue;
+      // only a decision made on an item we already had is pushed; a newly arrived item must never overwrite what the server holds
+      if (prev === undefined || prev === g.gateStatus || !g.remoteId) continue;
       void fetch(`${base(c)}/v1/desktop/gate/${encodeURIComponent(g.remoteId)}/status`, { method: "POST", headers: headers(c), body: JSON.stringify({ gate_status: g.gateStatus, linked_job_id: g.linkedJobId }) }).catch(() => undefined);
     }
   }, [data.gate]);
