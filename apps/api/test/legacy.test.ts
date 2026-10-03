@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGatePayload, externalIdFor, flattenTelegramText, legacyToEnvelope, parseTelegramMessage, providerFor } from "@job-hunt-os/contracts";
+import { normalizeIncoming, parseGatePayload, externalIdFor, flattenTelegramText, legacyToEnvelope, parseTelegramMessage, providerFor } from "@job-hunt-os/contracts";
 import { fingerprintOf, initialDelivery, MAX_DELIVERY_ATTEMPTS, nextDelivery } from "../src/gate-ingest.js";
 
 const relay = { company: { name: "Commure" }, opportunity: { title: "Software Engineering Intern, Summer 2027", location: "Mountain View, CA", work_arrangement: "Onsite", application: { apply_url: "https://jobs.ashbyhq.com/Commure/abc?utm_source=x" } }, match: { score: 99 }, eligibility: { f1: { cpt_status: "unknown" }, sponsorship: { status: "unknown" } }, metadata: { fingerprint: "992feee883a515f4fff5" } };
@@ -89,5 +89,26 @@ describe("telegram delivery lifecycle", () => {
     expect(second.next_retry_at?.getTime()).toBe(t0.getTime() + 120_000);
     const last = nextDelivery({ retry_count: MAX_DELIVERY_ATTEMPTS - 1 }, { status: "failed" }, t0);
     expect(last).toMatchObject({ status: "failed", retry_count: MAX_DELIVERY_ATTEMPTS, next_retry_at: null });
+  });
+});
+
+describe("normalizeIncoming", () => {
+  const full = { event: "gate.opportunity.discovered", schema_version: "1.0", search: { watch_id: "w", searched_at: "2026-10-03T00:00:00Z" },
+    opportunity: { external_id: "acme-1", title: "SWE Intern", location: { city: "Austin", state: "TX", country: "US" }, application: { apply_url: "https://jobs.lever.co/acme/1", deadline: "2026-10-20T00:00:00Z" }, description_summary: "Build things." },
+    company: { name: "Acme" }, match: { score: 91, matching_skills: ["Python", "SQL"], reason: "Strong overlap." }, compensation: { available: true, min: 40, max: 50, period: "hour" },
+    source: { provider: "lever", name: "Acme Careers", url: "https://jobs.lever.co/acme/1", official: true, first_seen_at: "2026-10-03T00:00:00Z", last_verified_at: "2026-10-03T00:00:00Z" }, metadata: { discovered_at: "2026-10-03T00:00:00Z" } };
+  it("keeps every detail of a full GATE envelope", () => {
+    const r = normalizeIncoming(full);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.envelope).toMatchObject({ match: { matching_skills: ["Python", "SQL"], reason: "Strong overlap." }, compensation: { min: 40, max: 50 }, opportunity: { external_id: "acme-1", application: { deadline: "2026-10-20T00:00:00Z" } } });
+  });
+  it("still adapts the slim relay shape", () => {
+    const r = normalizeIncoming(relay);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.envelope.source.provider).toBe("ashby");
+  });
+  it("rejects garbage without throwing", () => {
+    expect(normalizeIncoming(null).ok).toBe(false);
+    expect(normalizeIncoming({ hello: "world" }).ok).toBe(false);
   });
 });

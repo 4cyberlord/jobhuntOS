@@ -123,3 +123,11 @@ export function parseTelegramMessage(raw: string): LegacyGate | null {
     eligibility: { f1: { cpt_status: field("🎓") }, sponsorship: { status: field("🛂") } }, metadata: gateId ? { fingerprint: gateId } : undefined,
   };
 }
+
+/** Accepts whatever the watcher sends: a complete GATE envelope is kept exactly as sent (skills, deadline, pay, reasoning all survive);
+ *  only the slimmer relay-era shape goes through the adapter that fills in the missing required fields. */
+export function normalizeIncoming(raw: unknown, opts: LegacyOptions = {}): { ok: true; envelope: GateEnvelope } | { ok: false; error: string } {
+  const full = parseGatePayload(raw);
+  if (full.ok && full.items.length === 1) return { ok: true, envelope: full.items[0] };
+  return legacyToEnvelope((raw ?? {}) as LegacyGate, opts);
+}

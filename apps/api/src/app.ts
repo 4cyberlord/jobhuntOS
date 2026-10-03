@@ -1,7 +1,7 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
-import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUSES, legacyToEnvelope, parseGatePayload, searchProfile, type LegacyGate } from "@job-hunt-os/contracts";
+import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUSES, normalizeIncoming, parseGatePayload, searchProfile, type LegacyGate } from "@job-hunt-os/contracts";
 import { timingSafeEqual } from "node:crypto";
 import { audit, authBlocked, claimPendingDeliveries, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, setGateStatus, upsertPending } from "./repository.js";
 
@@ -62,7 +62,7 @@ export async function buildApp() {
     const results = []; const summary = { received: list.length, created: 0, duplicates: 0, invalid: 0 };
     for (const raw of list as (LegacyGate & { received_at?: string })[]) {
       const at = raw.received_at && !Number.isNaN(Date.parse(raw.received_at)) ? new Date(raw.received_at) : undefined;
-      const n = legacyToEnvelope(raw, { at });
+      const n = normalizeIncoming(raw, { at });
       if (!n.ok) { summary.invalid++; results.push({ ok: false, error: n.error }); continue; }
       const r = await ingestGate(n.envelope, { telegramDelivered: notify === false });
       if (r.duplicate) summary.duplicates++; else summary.created++;

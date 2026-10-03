@@ -15,7 +15,10 @@ for (const [i, job] of jobs.entries()) {
   try {
     const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(job), signal: AbortSignal.timeout(30000) });
     const body = await res.text();
-    if (res.ok) { sent++; console.log(`OK ${label} :: ${body}`); } else { failed++; console.error(`FAILED ${label} HTTP ${res.status} :: ${body}`); }
+    // HTTP 200 is not enough: the relay also answers 200 when it could alert Telegram but NOT save the job (success:false / degraded).
+    let saved = res.ok;
+    try { const b = JSON.parse(body); if (b.success === false || b.degraded) saved = false; } catch { /* non-JSON body: trust the status */ }
+    if (saved) { sent++; console.log(`OK ${label} :: ${body}`); } else { failed++; console.error(`FAILED (not saved) ${label} HTTP ${res.status} :: ${body}`); }
   } catch (e) { failed++; console.error(`FAILED ${label} :: ${e.message}`); }
   await sleep(1500); // the relay queues and retries Telegram rate limits itself
 }
