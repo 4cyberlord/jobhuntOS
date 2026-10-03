@@ -192,33 +192,8 @@ export function approve(d: AppData, id: string, now = Date.now()): { data: AppDa
   return { data: next, job, event };
 }
 
-/* ───────── seed (sample discoveries so the GATE Inbox is populated on first run) ───────── */
-const iso = (ms: number) => new Date(ms).toISOString();
-type Sample = { id: string; company: string; site: string; title: string; track: GateEnvelope["opportunity"]["track"]; city: string; state: string; mode: GateEnvelope["opportunity"]["work_arrangement"]; pay?: [number, number]; score: number; deadlineDays?: number; cpt: "allowed" | "likely_allowed" | "unknown" | "not_allowed"; spons: "available" | "unknown" | "not_available"; official: boolean; provider: GateEnvelope["source"]["provider"]; skills: string[]; gaps: string[]; summary: string; foundMinsAgo: number; us?: boolean; citizen?: boolean };
-const SAMPLES: Sample[] = [
-  { id: "doordash-3536354", company: "DoorDash", site: "doordash.com", title: "Software Engineer Intern - Summer 2027", track: "software_engineering", city: "San Francisco", state: "CA", mode: "hybrid", pay: [50, 60], score: 94, deadlineDays: 13, cpt: "allowed", spons: "unknown", official: true, provider: "company_careers", skills: ["Python", "Java", "SQL", "AWS", "REST APIs", "Git"], gaps: ["Kubernetes production experience"], summary: "Software engineering internship focused on production systems, scalable backend services, APIs, and customer-facing products.", foundMinsAgo: 12 },
-  { id: "northstar-4411", company: "Northstar Labs", site: "northstar.dev", title: "Software Engineering Intern", track: "developer_tools", city: "San Francisco", state: "CA", mode: "hybrid", score: 91, deadlineDays: 3, cpt: "likely_allowed", spons: "unknown", official: true, provider: "greenhouse", skills: ["TypeScript", "React", "Node.js", "PostgreSQL"], gaps: ["Distributed tracing"], summary: "Build developer infrastructure used by product teams working across distributed systems.", foundMinsAgo: 40 },
-  { id: "atlas-9921", company: "Atlas Cloud", site: "atlascloud.io", title: "Platform Engineering Intern", track: "platform", city: "", state: "", mode: "remote", pay: [42, 48], score: 86, deadlineDays: 20, cpt: "unknown", spons: "available", official: true, provider: "lever", skills: ["AWS", "Python", "Docker", "CI/CD"], gaps: ["Terraform", "Go"], summary: "Work on cloud platform primitives and internal developer experience.", foundMinsAgo: 95 },
-  { id: "fjord-2208", company: "Fjord Analytics", site: "fjord.ai", title: "Data Engineering Intern", track: "data_engineering", city: "New York", state: "NY", mode: "hybrid", pay: [38, 44], score: 83, cpt: "allowed", spons: "unknown", official: false, provider: "linkedin", skills: ["SQL", "Python", "ETL"], gaps: ["Airflow", "Spark"], summary: "Shape reliable pipelines for analytics and machine-learning workflows.", foundMinsAgo: 180 },
-  { id: "spotify-7710", company: "Spotify", site: "spotify.com", title: "Software Engineering Intern", track: "backend", city: "New York", state: "NY", mode: "hybrid", pay: [44, 52], score: 79, deadlineDays: 9, cpt: "unknown", spons: "unknown", official: true, provider: "company_careers", skills: ["Java", "Python", "SQL"], gaps: ["Kafka", "Scala"], summary: "Build backend features that connect millions of listeners with the music they love.", foundMinsAgo: 260 },
-  { id: "arcade-1304", company: "Arcade Systems", site: "arcadesystems.com", title: "Backend Engineering Intern", track: "backend", city: "Austin", state: "TX", mode: "onsite", pay: [36, 42], score: 62, cpt: "not_allowed", spons: "not_available", official: false, provider: "indeed", skills: ["Java", "SQL"], gaps: ["Security clearance", "Citizenship requirement"], summary: "Help build reliable services at the core of a fast-growing defense platform. US persons only.", foundMinsAgo: 400, us: true, citizen: true },
-];
-export function seedGate(now = Date.now()): GateOpportunity[] {
-  return SAMPLES.map((s): GateOpportunity => {
-    const found = now - s.foundMinsAgo * 60000;
-    const url = `https://careers.${s.site}/jobs/${s.id}`;
-    const env: GateEnvelope = {
-      event: "gate.opportunity.discovered", schema_version: "1.0",
-      search: { watch_id: "summer-2027-software", season: "Summer 2027", country: "US", searched_at: iso(found) },
-      opportunity: { external_id: s.id, title: s.title, track: s.track, employment_type: "internship", season: "Summer 2027", location: { city: s.city || null, state: s.state || null, country: "US" }, work_arrangement: s.mode, dates: { duration_weeks: 12 }, application: { status: "open", deadline: s.deadlineDays ? iso(now + s.deadlineDays * DAY) : null, apply_url: url }, description_summary: s.summary },
-      company: { name: s.company, website: `https://www.${s.site}`, careers_url: `https://careers.${s.site}`, industry: "Technology", headquarters: s.city ? `${s.city}, ${s.state}` : null },
-      match: { score: s.score, level: levelOf(s.score), matching_skills: s.skills, matching_experience: ["Previous software engineering internship", "Full-stack application development"].slice(0, s.score > 80 ? 2 : 1), matching_education: ["Computer Science degree", "Expected May 2028 graduation"], missing_or_unclear: s.gaps, reason: s.score >= 85 ? "Strong overlap across required skills, prior internship experience, and the graduation window." : s.score >= 65 ? "Good skill overlap with a few gaps in the listed requirements." : "Limited overlap and eligibility restrictions that need your review." },
-      eligibility: { degree_match: true, graduation_match: s.score >= 65, student_status_match: true, citizenship_required: !!s.citizen, us_person_required: !!s.us, f1: { status: s.cpt === "allowed" ? "eligible" : s.cpt === "not_allowed" ? "not_eligible" : "unknown", cpt_status: s.cpt, opt_status: "unknown" }, sponsorship: { status: s.spons, internship_sponsorship: s.spons, future_sponsorship: "unknown" }, work_authorization_note: s.cpt === "allowed" ? "Posting explicitly states F-1 students may participate using CPT." : undefined },
-      compensation: s.pay ? { available: true, min: s.pay[0], max: s.pay[1], currency: "USD", period: "hour" } : { available: false, currency: "USD", period: "hour" },
-      source: { provider: s.provider, name: s.official ? `${s.company} Careers` : s.provider === "linkedin" ? "LinkedIn" : "Indeed", url, official: s.official, first_seen_at: iso(found), last_verified_at: iso(found) },
-      agent: { name: "GATE Scout", agent_type: "job_discovery", decision: s.us || s.citizen ? "needs_review" : "surface", confidence: Math.min(0.99, s.score / 100 + 0.02), flags: [] },
-      metadata: { is_duplicate: false, discovered_at: iso(found), gate_status: "discovered", user_action_required: true },
-    };
-    return { id: `gate-${s.id}`, gateStatus: "discovered", fingerprint: localFingerprint(env), receivedAt: found, updatedAt: found, seen: s.foundMinsAgo > 200, envelope: env };
-  });
-}
+/* ───────── sample data ───────── */
+/** The GATE Inbox no longer ships demo discoveries; real ones arrive from the server. These ids belonged to the old first-run
+ *  samples, so a one-time cleanup in the store can remove them from installs that already have them. */
+export const SAMPLE_GATE_IDS: readonly string[] = ["gate-doordash-3536354", "gate-northstar-4411", "gate-atlas-9921", "gate-fjord-2208", "gate-spotify-7710", "gate-arcade-1304"];
+export const seedGate = (): GateOpportunity[] => [];

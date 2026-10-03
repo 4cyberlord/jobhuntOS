@@ -3,7 +3,7 @@ import type { AppData, AppNotification, CalEvent, Company, Contact, Credential, 
 import { seed } from "./seed";
 import { deleteFile, putFile } from "./filedb";
 import { uid } from "./format";
-import { approve, ingest, setStatus, type IngestItem, type IngestSummary } from "./gate";
+import { approve, ingest, SAMPLE_GATE_IDS, setStatus, type IngestItem, type IngestSummary } from "./gate";
 import { parseGatePayload, type GateStatus } from "@job-hunt-os/contracts";
 
 const KEY = "jhos.data.v2";
@@ -15,7 +15,10 @@ function load(): AppData {
       const parsed = JSON.parse(raw) as AppData;
       // one-time migration: agent discoveries used to live in the job list as "pending_review"; they now live in the GATE Inbox
       if (!parsed.gate) parsed.jobs = (parsed.jobs ?? []).filter((j) => !(j.status === "pending_review" && /^j[1-5]$/.test(j.id)));
-      return { ...seed(), ...parsed, settings: { ...seed().settings, ...parsed.settings } };
+      const merged = { ...seed(), ...parsed, settings: { ...seed().settings, ...parsed.settings } };
+      // one-time cleanup: drop the old demo discoveries, but never anything you approved, dismissed, saved or that came from the server
+      merged.gate = (merged.gate ?? []).filter((g) => !(SAMPLE_GATE_IDS.includes(g.id) && g.gateStatus === "discovered" && !g.linkedJobId && !g.remoteId));
+      return merged;
     }
   } catch {
     /* corrupted or unavailable storage falls back to seed data */

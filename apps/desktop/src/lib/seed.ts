@@ -134,7 +134,7 @@ const documents = (): DocItem[] => [
 export function seed(): AppData {
   const now = Date.now();
   return {
-    gate: seedGate(now),
+    gate: seedGate(),
     jobs: jobs(),
     companies: companies(),
     contacts: [
