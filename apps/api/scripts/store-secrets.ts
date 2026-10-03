@@ -16,16 +16,16 @@ const agentKey = pick("AGENT_API_KEY");
 const githubToken = pick("GITHUB_TOKEN");
 const githubRepo = pick("GITHUB_REPO") ?? "4cyberlord/jobhuntOS";
 if (!process.env.MONGODB_URI) { console.error("MONGODB_URI not found in apps/api/.env"); process.exit(1); }
-if (!email || !password) { console.error("Email / password not found in .env.local"); process.exit(1); }
-if (password.length < 10) { console.error("The password in .env.local is shorter than 10 characters; choose a longer one first."); process.exit(1); }
+const needOwner = !!(email && password);
+if (needOwner && password!.length < 10) { console.error("The password in .env.local is shorter than 10 characters."); process.exit(1); }
 
 const { hashPassword } = await import("../src/auth.js");
 const { setOwner, setAgentKey, getOwner, setGithub } = await import("../src/repository.js");
-await setOwner(email, hashPassword(password));
+if (needOwner) await setOwner(email!, hashPassword(password!));
 if (agentKey) await setAgentKey(agentKey);
 if (githubToken) await setGithub(githubToken, githubRepo);
 const stored = await getOwner();
-console.log(`Owner saved in the database for ${stored?.email}.`);
+console.log(needOwner ? `Owner saved in the database for ${stored?.email}.` : `Owner unchanged (no password in .env.local); the existing owner in the database is ${stored?.email}.`);
 console.log(githubToken ? `GitHub token saved in the database (repo ${githubRepo}); app updates will be served through the API.` : "No GITHUB_TOKEN in .env.local: add one to enable in-app updates from your private repo.");
 console.log(agentKey ? "Agent key hash saved in the database." : "No AGENT_API_KEY in .env.local: the agent key is still read from the environment until you add one and re-run this.");
 process.exit(0);
