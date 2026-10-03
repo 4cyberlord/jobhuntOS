@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppData, AppNotification, CalEvent, Company, Contact, Credential, DocItem, InboxMessage, Job, Settings, Status, Task } from "./types";
 import { seed } from "./seed";
+import { registerLogoUrls, registerWebsites } from "./logo";
 import { deleteFile, putFile } from "./filedb";
 import { uid } from "./format";
 import { approve, ingest, SAMPLE_GATE_IDS, setStatus, type IngestItem, type IngestSummary } from "./gate";
@@ -198,6 +199,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   ref.current = data;
   // state is advanced synchronously through the ref so actions that read-then-write (ingest, approve) stay consistent
   const act = useMemo(() => makeActions((fn) => { ref.current = fn(ref.current); setData(ref.current); }, () => ref.current), []);
+  // the server saves each company's verified website on the record; share it with every Logo in the app
+  useEffect(() => {
+    registerWebsites([
+      ...data.gate.map((g): [string, string | null | undefined] => [g.envelope.company.name, g.envelope.company.website]),
+      ...data.jobs.map((j): [string, string | null | undefined] => [j.company, j.gate?.envelope.company.website]),
+      ...data.companies.map((c): [string, string | null | undefined] => [c.name, c.website]),
+    ]);
+    registerLogoUrls([
+      ...data.gate.map((g): [string, string | null | undefined] => [g.envelope.company.name, g.envelope.company.logo_url]),
+      ...data.jobs.map((j): [string, string | null | undefined] => [j.company, j.gate?.envelope.company.logo_url]),
+    ]);
+  }, [data.gate, data.jobs, data.companies]);
   useEffect(() => {
     const t = setTimeout(() => {
       try {

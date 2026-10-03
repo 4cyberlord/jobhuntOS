@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import type { LogoHints } from "@job-hunt-os/contracts";
+import { useLogoCandidates } from "../lib/logo";
 
 const tile = (bg: string, fg: string, text: string): ReactNode => (
   <svg viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill={bg} /><text x="20" y="26.5" textAnchor="middle" fontSize="19" fontWeight="700" fontFamily="-apple-system,Helvetica,Arial" fill={fg}>{text}</text></svg>
@@ -40,13 +42,19 @@ const ALIASES: Record<string, string> = {
 };
 const PALETTE = ["#2f7cf6", "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#06b6d4", "#ec4899", "#64748b"];
 
-export function Logo({ name, size = 36 }: { name: string; size?: number }) {
+/** Hand-drawn marks for the biggest brands (crisp, offline); any other company gets its real logo from its verified website, else an initial tile. */
+export function Logo({ name, size = 36, hints }: { name: string; size?: number; hints?: LogoHints & { logoUrl?: string | null } }) {
   const key = ALIASES[name.toLowerCase()] ?? name.toLowerCase().split(/[\s.]/)[0];
   const known = LOGOS[key];
+  const candidates = useLogoCandidates(name, hints, !known);
+  const [broken, setBroken] = useState<string[]>([]);
+  const remote = candidates.find((u) => !broken.includes(u)); // a dead supplied URL falls through to the website's icon, then the tile
   const hash = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);
   return (
     <span className="logo" style={{ width: size, height: size, borderRadius: Math.round(size * 0.26) }} aria-hidden="true">
-      {known ?? tile(PALETTE[hash % PALETTE.length], "#fff", (name.trim()[0] ?? "?").toUpperCase())}
+      {known ?? (remote
+        ? <img className="logo-img" src={remote} alt="" referrerPolicy="no-referrer" decoding="async" draggable={false} onError={() => setBroken((b) => [...b, remote])} />
+        : tile(PALETTE[hash % PALETTE.length], "#fff", (name.trim()[0] ?? "?").toUpperCase()))}
     </span>
   );
 }

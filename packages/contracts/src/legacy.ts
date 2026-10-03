@@ -7,7 +7,7 @@ import { canonicalUrl, levelOf, parseGatePayload, type GateEnvelope, type Track 
  */
 
 export type LegacyGate = {
-  company?: { name?: string; website?: string };
+  company?: { name?: string; website?: string | null; careers_url?: string | null; logo_url?: string | null };
   opportunity?: { title?: string; location?: string | { city?: string; state?: string }; work_arrangement?: string; season?: string; application?: { apply_url?: string } };
   match?: { score?: number | string };
   eligibility?: { f1?: { cpt_status?: string }; sponsorship?: { status?: string } };
@@ -85,7 +85,7 @@ export function legacyToEnvelope(l: LegacyGate, opts: LegacyOptions = {}): { ok:
       ...(season ? { season } : {}), location: { ...(place.city ? { city: place.city } : {}), ...(place.state ? { state: place.state } : {}), country: "US" }, work_arrangement: arr,
       application: { status: "open", apply_url: applyUrl }, description_summary: "",
     },
-    company: { name, ...(l.company?.website && /^https?:\/\//.test(l.company.website) ? { website: l.company.website } : {}) },
+    company: { name, ...(l.company?.website && /^https?:\/\//.test(l.company.website) ? { website: l.company.website } : {}), ...(l.company?.logo_url && /^https?:\/\//.test(l.company.logo_url) ? { logo_url: l.company.logo_url } : {}), ...(l.company?.careers_url && /^https?:\/\//.test(l.company.careers_url) ? { careers_url: l.company.careers_url } : {}) },
     match: { score, level: levelOf(score), reason: "Imported from the GATE relay; detailed assessment was not captured." },
     eligibility: { f1: { status: "unknown", cpt_status: cpt, opt_status: "unknown" }, sponsorship: { status: spon } },
     source: { provider: src.provider, name: src.name, url: applyUrl, official: src.official, first_seen_at: at, last_verified_at: at },

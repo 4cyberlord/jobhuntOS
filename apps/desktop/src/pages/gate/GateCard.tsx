@@ -31,7 +31,7 @@ export function GateCard({ g, active, onClick }: { g: GateOpportunity; active: b
   const place = locationText(e);
   return (
     <button className={`g-card ${active ? "active" : ""} ${!g.seen ? "unseen" : ""}`} onClick={onClick} aria-pressed={active}>
-      <Logo name={e.company.name} size={46} />
+      <Logo name={e.company.name} size={46} hints={{ website: e.company.website, applyUrl: e.opportunity.application.apply_url, logoUrl: e.company.logo_url }} />
       <div className="g-card-main">
         <div className="g-card-title"><b title={e.opportunity.title}>{e.opportunity.title}</b>{!g.seen && <i className="g-dot" aria-label="New" />}</div>
         <span className="g-card-co">{e.company.name}{e.source.official && <CheckBadgeIcon className="g-verified" aria-label="Official source" />}</span>

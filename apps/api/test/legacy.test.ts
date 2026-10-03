@@ -112,3 +112,30 @@ describe("normalizeIncoming", () => {
     expect(normalizeIncoming({ hello: "world" }).ok).toBe(false);
   });
 });
+
+describe("company logo and website from the watcher", () => {
+  const withCompany = (company: Record<string, unknown>) => ({ ...relay, company });
+  it("keeps website, careers_url and logo_url exactly as sent", () => {
+    const r = normalizeIncoming(withCompany({ name: "Example Company", website: "https://example.com", careers_url: "https://example.com/careers", logo_url: "https://example.com/assets/logo.png" }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.envelope.company).toMatchObject({ name: "Example Company", website: "https://example.com", careers_url: "https://example.com/careers", logo_url: "https://example.com/assets/logo.png" });
+  });
+  it("accepts logo_url: null (not verified) and still saves the job", () => {
+    const r = normalizeIncoming(withCompany({ name: "Example Company", website: null, logo_url: null }));
+    expect(r.ok).toBe(true);
+    if (r.ok) { expect(r.envelope.company.logo_url ?? null).toBeNull(); expect(r.envelope.opportunity.title).toBe(relay.opportunity.title); }
+  });
+  it("drops a logo_url that is not an http(s) URL instead of failing the whole record", () => {
+    const r = normalizeIncoming(withCompany({ name: "Example Company", logo_url: "javascript:alert(1)" }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.envelope.company.logo_url ?? null).toBeNull();
+  });
+  it("a full GATE envelope keeps its logo_url too", () => {
+    const base = normalizeIncoming(relay);
+    expect(base.ok).toBe(true);
+    if (!base.ok) return;
+    const full = { ...base.envelope, company: { ...base.envelope.company, logo_url: "https://example.com/logo.svg" } };
+    const r = normalizeIncoming(full);
+    expect(r.ok && r.envelope.company.logo_url).toBe("https://example.com/logo.svg");
+  });
+});

@@ -69,6 +69,7 @@ function findExisting(gate: GateOpportunity[], e: GateEnvelope, fp: string) {
 function refresh(old: GateOpportunity, e: GateEnvelope, now: number): GateOpportunity {
   const merged: GateEnvelope = {
     ...old.envelope,
+    company: { ...old.envelope.company, website: e.company.website ?? old.envelope.company.website, logo_url: e.company.logo_url ?? old.envelope.company.logo_url },
     opportunity: { ...old.envelope.opportunity, application: e.opportunity.application, description_summary: e.opportunity.description_summary || old.envelope.opportunity.description_summary },
     compensation: e.compensation ?? old.envelope.compensation,
     eligibility: e.eligibility,

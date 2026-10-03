@@ -1,5 +1,6 @@
 import { MongoClient, ObjectId, type Db } from "mongodb";
 import { deriveFlags, softKey, type AgentOpportunity, type GateEnvelope, type GateStatus } from "@job-hunt-os/contracts";
+import { resolveWebsite } from "./company-site.js";
 import { classifyIncoming, fingerprintOf, initialDelivery, MAX_DELIVERY_ATTEMPTS, mutableUpdate, nextDelivery, notificationFor, SENDING_LEASE_MS, USER_DECIDED, type DeliveryOutcome, type DeliveryState } from "./gate-ingest.js";
 let db: Db | undefined;
 export async function database() { if (db) return db; const uri = process.env.MONGODB_URI; if (!uri) throw new Error("MONGODB_URI is required"); const client = new MongoClient(uri); await client.connect(); db = client.db(); await Promise.all([db.collection("opportunities").createIndex({ externalId: 1 }, { unique: true }), db.collection("opportunities").createIndex({ duplicateKey: 1 }, { unique: true }), db.collection("audit_logs").createIndex({ createdAt: -1 }), db.collection("gate_opportunities").createIndex({ fingerprint: 1 }, { unique: true }), db.collection("gate_opportunities").createIndex({ external_id: 1 }), db.collection("gate_opportunities").createIndex({ gate_status: 1 }), db.collection("gate_opportunities").createIndex({ updatedAt: 1 }), db.collection("auth_failures").createIndex({ at: 1 }, { expireAfterSeconds: 900 }), db.collection("auth_failures").createIndex({ ip: 1, at: 1 }), db.collection("gate_opportunities").createIndex({ "delivery.telegram.status": 1, "delivery.telegram.next_retry_at": 1 })]); return db; }
@@ -79,3 +80,32 @@ export async function authBlocked(ip: string) {
   try { const c = (await database()).collection("auth_failures"); return (await c.countDocuments({ ip, at: { $gt: new Date(Date.now() - 900_000) } }, { limit: MAX_AUTH_FAILURES })) >= MAX_AUTH_FAILURES; } catch { return false; }
 }
 export async function recordAuthFailure(ip: string) { try { await (await database()).collection("auth_failures").insertOne({ ip, at: new Date() }); } catch { /* best effort */ } }
+
+/* ───────── company website enrichment (drives real logos in the app) ───────── */
+const RECHECK_MS = 7 * 86_400_000;
+/** Verifies and stores `company.website` for one record. Records the attempt either way so failures are not retried constantly. */
+export async function enrichCompanyById(id: string): Promise<string | undefined> {
+  if (!ObjectId.isValid(id)) return undefined;
+  const c = (await database()).collection("gate_opportunities");
+  const doc = await c.findOne({ _id: new ObjectId(id) }, { projection: { envelope: 1 } });
+  if (!doc) return undefined;
+  const e = doc.envelope as GateEnvelope;
+  const website = e.company.website || (await resolveWebsite(e.company.name, { applyUrl: e.opportunity.application.apply_url }));
+  const now = new Date();
+  await c.updateOne({ _id: doc._id }, { $set: { site_checked_at: now, ...(website && !e.company.website ? { "envelope.company.website": website, updatedAt: now } : {}) } });
+  return website;
+}
+/** Works through records that still have no website. `updatedAt` is bumped on success so the desktop's cursor sync picks the change up. */
+const NEEDS = { $or: [{ "envelope.company.website": { $exists: false } }, { "envelope.company.website": null }, { "envelope.company.website": "" }] };
+export async function enrichPending(limit: number, force = false) {
+  const c = (await database()).collection("gate_opportunities");
+  const cutoff = new Date(Date.now() - RECHECK_MS);
+  const filter = force ? NEEDS : { $and: [NEEDS, { $or: [{ site_checked_at: { $exists: false } }, { site_checked_at: { $lt: cutoff } }] }] };
+  const docs = await c.find(filter, { projection: { envelope: 1 } }).limit(limit).toArray();
+  const results: { company: string; website: string | null }[] = [];
+  for (let i = 0; i < docs.length; i += 3) {
+    await Promise.all(docs.slice(i, i + 3).map(async (d) => { const w = await enrichCompanyById(String(d._id)); results.push({ company: (d.envelope as GateEnvelope).company.name, website: w ?? null }); }));
+  }
+  const remaining = force ? Math.max(0, (await c.countDocuments(NEEDS)) - docs.length) : await c.countDocuments(filter);
+  return { checked: docs.length, resolved: results.filter((r) => r.website).length, remaining, results };
+}

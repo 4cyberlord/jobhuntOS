@@ -56,7 +56,7 @@ export function GateDetail({ g, onApprove, onDecide, onOpenJob, onKanban, onCopi
   return (
     <>
       <header className="gd-head">
-        <Logo name={e.company.name} size={58} />
+        <Logo name={e.company.name} size={58} hints={{ website: e.company.website, applyUrl: e.opportunity.application.apply_url, logoUrl: e.company.logo_url }} />
         <div className="gd-title">
           <h2>{e.opportunity.title}</h2>
           <div className="gd-co">{e.company.name}{e.source.official && <CheckBadgeIcon className="g-verified" aria-label="Official source" />}</div>

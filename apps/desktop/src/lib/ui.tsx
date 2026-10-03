@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 export type Route = "dashboard" | "kanban" | "opportunities" | "companies" | "contacts" | "calendar" | "documents" | "vault" | "gate" | "inbox" | "insights" | "notifications" | "settings";
 export const ROUTES: Route[] = ["dashboard", "kanban", "opportunities", "companies", "contacts", "calendar", "documents", "vault", "gate", "inbox", "insights", "notifications", "settings"];
+/** The first-run destination when there is no valid deep link. */
+export const DEFAULT_ROUTE: Route = "gate";
 
 export type ModalState =
   | { kind: "job"; preset?: Record<string, unknown> }
@@ -34,7 +36,7 @@ const Ctx = createContext<UI | null>(null);
 
 const fromHash = (): Route => {
   const h = window.location.hash.replace(/^#\/?/, "").split("?")[0] as Route;
-  return ROUTES.includes(h) ? h : "dashboard";
+  return ROUTES.includes(h) ? h : DEFAULT_ROUTE;
 };
 
 export function UIProvider({ children }: { children: ReactNode }) {

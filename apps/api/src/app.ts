@@ -3,7 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUSES, normalizeIncoming, parseGatePayload, searchProfile, type LegacyGate } from "@job-hunt-os/contracts";
 import { timingSafeEqual } from "node:crypto";
-import { audit, authBlocked, claimPendingDeliveries, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, setGateStatus, upsertPending } from "./repository.js";
+import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, setGateStatus, upsertPending } from "./repository.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -66,13 +66,15 @@ export async function buildApp() {
       if (!n.ok) { summary.invalid++; results.push({ ok: false, error: n.error }); continue; }
       const r = await ingestGate(n.envelope, { telegramDelivered: notify === false });
       if (r.duplicate) summary.duplicates++; else summary.created++;
-      results.push({ ok: true, gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, telegram_status: r.telegram_status });
+      if (r.created && list.length === 1) await Promise.race([enrichCompanyById(r.gate_opportunity_id), new Promise((res) => setTimeout(res, 6000))]).catch(() => undefined);
+    results.push({ ok: true, gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, telegram_status: r.telegram_status });
     }
     return reply.code(summary.created ? 201 : 200).send({ success: summary.invalid < list.length, results, summary });
   });
   const deliveryBody = z.object({ channel: z.literal("telegram"), status: z.enum(["sent", "failed", "rate_limited"]), message_id: z.number().int().optional(), error: z.string().max(500).optional(), retry_after: z.number().int().min(0).max(86_400).optional() });
   app.post("/v1/agent/gate/:id/delivery", async (request, reply) => { const b = deliveryBody.safeParse(request.body); if (!b.success) return reply.code(422).send({ error: "invalid payload", details: b.error.flatten() }); const { channel: _c, ...outcome } = b.data; const ok = await recordDelivery((request.params as { id: string }).id, outcome as never); return ok ? reply.send({ success: true }) : reply.code(404).send({ error: "not found" }); });
   app.post("/v1/agent/gate/deliveries/claim", async (request) => { const limit = Math.min(20, Math.max(1, Number((request.body as { limit?: number })?.limit ?? 5))); return { items: await claimPendingDeliveries(limit) }; });
+  app.post("/v1/agent/gate/enrich", async (request) => { const b = request.body as { limit?: number; force?: boolean } | undefined; return enrichPending(Math.min(9, Math.max(1, Number(b?.limit ?? 6))), b?.force === true); });
   app.get("/v1/agent/gate/decisions", async () => gateDecisions());
   app.get("/v1/desktop/gate/opportunities", async (request, reply) => { const since = (request.query as { since?: string }).since; if (since && Number.isNaN(Date.parse(since))) return reply.code(422).send({ error: "since must be an ISO date" }); return { items: await gateForDesktop(since) }; });
   const gateStatusBody = z.object({ gate_status: z.enum(GATE_STATUSES), linked_job_id: z.string().max(100).optional() });

@@ -26,3 +26,4 @@ export const searchProfile = {
 } as const;
 export * from "./gate.js";
 export * from "./legacy.js";
+export * from "./logo.js";
