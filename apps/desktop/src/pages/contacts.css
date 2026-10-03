@@ -3,28 +3,28 @@
 .ct-table { overflow: hidden; }
 .ct-table table { table-layout: auto; }
 .ct-table th:first-child { border-top-left-radius: var(--radius); }
-.ct-table td small, .ct-table .ct-name small { color: var(--muted); font-size: 12px; }
+.ct-table td small, .ct-table .ct-name small { color: var(--muted); font-size: calc(12px * var(--fs, 1)); }
 .ct-table tr:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .ct-name { display: flex; align-items: center; gap: 10px; min-width: 150px; }
-.ct-name .dash-grow b { font-size: 13.5px; }
-.ct-av { width: 36px; height: 36px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none; }
-.ct-av.lg { width: 48px; height: 48px; font-size: 16px; }
+.ct-name .dash-grow b { font-size: calc(13.5px * var(--fs, 1)); }
+.ct-av { width: 36px; height: 36px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-size: calc(13px * var(--fs, 1)); font-weight: 700; flex: none; }
+.ct-av.lg { width: 48px; height: 48px; font-size: calc(16px * var(--fs, 1)); }
 .ct-co { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.ct-mail { display: flex; align-items: center; gap: 2px; font-size: 13px; }
+.ct-mail { display: flex; align-items: center; gap: 2px; font-size: calc(13px * var(--fs, 1)); }
 .ct-mail .icon-btn { width: 26px; height: 26px; }
 .ct-mail .icon-btn svg { width: 15px; height: 15px; }
-.ct-li { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; }
+.ct-li { display: inline-flex; align-items: center; gap: 3px; font-size: calc(12px * var(--fs, 1)); }
 .ct-li svg { width: 12px; height: 12px; }
-.ct-job { border: 0; background: var(--blue-soft); color: var(--blue); padding: 3px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ct-last { white-space: nowrap; } .ct-last b { display: block; font-weight: 550; font-size: 13px; }
+.ct-job { border: 0; background: var(--blue-soft); color: var(--blue); padding: 3px 10px; border-radius: 8px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-last { white-space: nowrap; } .ct-last b { display: block; font-weight: 550; font-size: calc(13px * var(--fs, 1)); }
 .ct-empty-ico { width: 38px; height: 38px; color: var(--faint); }
 .ct-drawer { position: sticky; top: 0; max-height: calc(100vh - var(--header-h) - 96px); display: flex; flex-direction: column; overflow: hidden; }
 .ct-drawer > header { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); }
-.ct-drawer h2 { font-size: 18px; letter-spacing: -0.3px; }
+.ct-drawer h2 { font-size: calc(18px * var(--fs, 1)); letter-spacing: -0.3px; }
 .ct-drawer-scroll { overflow-y: auto; min-height: 0; padding: 14px 16px 18px; display: grid; gap: 12px; align-content: start; }
 .ct-form { display: grid; gap: 12px; }
 .ct-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.ct-drawer .co-danger { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.ct-drawer .co-danger { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: calc(13px * var(--fs, 1)); }
 .ct-drawer .co-danger span { flex: 1 1 100%; color: var(--text-2); }
 .ct-layout.with-drawer .ct-coname { display: none; }
 .ct-layout.with-drawer .ct-table td, .ct-layout.with-drawer .ct-table th { padding-left: 10px; padding-right: 10px; }

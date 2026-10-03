@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from "react";
 import type { Strength } from "./types";
 
-const META = "jhos.vault.meta";
 const enc = new TextEncoder();
 const bytes = (s: string) => enc.encode(s) as Uint8Array<ArrayBuffer>;
 const dec = new TextDecoder();
@@ -16,13 +15,14 @@ let fpKey: CryptoKey | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
-const readMeta = (): Meta | null => {
-  try {
-    return JSON.parse(localStorage.getItem(META) ?? "null");
-  } catch {
-    return null;
-  }
-};
+// The salt and verifier are ciphertext-safe and live in your workspace on the server; the master password and keys never leave memory.
+let meta: Meta | null = null;
+let persist: ((m: Meta) => void) | null = null;
+const readMeta = (): Meta | null => meta;
+/** Called by the store whenever the workspace's vault record changes. */
+export function setVaultMeta(m: Meta | null | undefined) { const next = m ?? null; if (JSON.stringify(next) === JSON.stringify(meta)) return; meta = next; emit(); }
+/** The store registers how a newly created vault is saved. */
+export const registerVaultPersist = (fn: (m: Meta) => void) => { persist = fn; };
 
 async function derive(password: string, salt: Uint8Array<ArrayBuffer>) {
   const base = await crypto.subtle.importKey("raw", bytes(password), "PBKDF2", false, ["deriveKey"]);
@@ -49,7 +49,8 @@ export async function createVault(master: string) {
   if (master.length < 8) throw new Error("Use at least 8 characters for the master password.");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const { aes, hmac } = await derive(master, salt);
-  localStorage.setItem(META, JSON.stringify({ salt: b64(salt), verifier: await seal(aes, "jhos-vault-ok") } satisfies Meta));
+  meta = { salt: b64(salt), verifier: await seal(aes, "jhos-vault-ok") };
+  persist?.(meta);
   key = aes;
   fpKey = hmac;
   emit();

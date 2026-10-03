@@ -1,6 +1,6 @@
 [package]
 name = "job-hunt-os"
-version = "0.1.0"
+version = "1.0.0"
 description = "Private job search operating system"
 edition = "2021"
 

@@ -1,29 +1,26 @@
 // Pulls GATE Scout discoveries from the server API and reports Approve/Dismiss decisions back.
-// The sync key is kept in its own localStorage entry (not in app data) so exports/backups never contain it.
+// The connection (API URL + sync key) is the only thing stored on the device; see syncConfig.ts.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { gateEnvelopeSchema, type GateStatus } from "@job-hunt-os/contracts";
 import { useData } from "./store";
+import { persistSyncConfig, readSyncConfig, type SyncConfig } from "./syncConfig";
 
-const KEY = "jhos.gate.sync";
-export type SyncConfig = { apiUrl: string; syncKey: string; intervalSec: number };
-// the hosted GATE API; only the sync key (from DESKTOP_SYNC_KEY) has to be pasted in Settings
-const DEFAULT: SyncConfig = { apiUrl: "https://job-hunt-os-api.vercel.app", syncKey: "", intervalSec: 120 };
+export type { SyncConfig };
 type Status = { state: "off" | "idle" | "syncing" | "error"; lastAt?: number; error?: string; lastCount?: number };
 
 let status: Status = { state: "off" };
 const subs = new Set<() => void>();
 const setStatus = (s: Status) => { status = s; subs.forEach((f) => f()); };
 
-export function readSyncConfig(): SyncConfig {
-  try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; } catch { return DEFAULT; }
-}
+export { readSyncConfig };
 export function writeSyncConfig(c: SyncConfig) {
-  try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* storage unavailable */ }
+  persistSyncConfig(c);
   subs.forEach((f) => f());
 }
-const CURSOR = "jhos.gate.cursor";
-const readCursor = () => { try { return localStorage.getItem(CURSOR) ?? "1970-01-01T00:00:00.000Z"; } catch { return "1970-01-01T00:00:00.000Z"; } };
-const writeCursor = (v: string) => { try { localStorage.setItem(CURSOR, v); } catch { /* storage unavailable */ } };
+// the cursor lives in memory only: the workspace already holds every GATE item, so a fresh start just re-checks (ingest dedupes)
+let cursor = "1970-01-01T00:00:00.000Z";
+const readCursor = () => cursor;
+const writeCursor = (v: string) => { cursor = v; };
 const configured = (c: SyncConfig) => /^https?:\/\//.test(c.apiUrl) && c.syncKey.length > 0;
 export const useSyncStatus = () => useSyncExternalStore((cb) => { subs.add(cb); return () => subs.delete(cb); }, () => status);
 export const useSyncConfig = () => { const [c, setC] = useState(readSyncConfig); useEffect(() => { const f = () => setC(readSyncConfig()); subs.add(f); return () => { subs.delete(f); }; }, []); return c; };

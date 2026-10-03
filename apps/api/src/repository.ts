@@ -1,4 +1,5 @@
 import { MongoClient, ObjectId, type Db } from "mongodb";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { deriveFlags, softKey, type AgentOpportunity, type GateEnvelope, type GateStatus } from "@job-hunt-os/contracts";
 import { resolveWebsite } from "./company-site.js";
 import { classifyIncoming, fingerprintOf, initialDelivery, MAX_DELIVERY_ATTEMPTS, mutableUpdate, nextDelivery, notificationFor, SENDING_LEASE_MS, USER_DECIDED, type DeliveryOutcome, type DeliveryState } from "./gate-ingest.js";
@@ -109,3 +110,101 @@ export async function enrichPending(limit: number, force = false) {
   const remaining = force ? Math.max(0, (await c.countDocuments(NEEDS)) - docs.length) : await c.countDocuments(filter);
   return { checked: docs.length, resolved: results.filter((r) => r.website).length, remaining, results };
 }
+
+/* ───────── workspace sync (jobs, companies, contacts, calendar, tasks, notifications, inbox, settings) ───────── */
+export const WORKSPACE_COLLECTIONS = ["jobs", "companies", "contacts", "events", "tasks", "notifications", "inbox", "activity", "documents", "credentials", "gate", "settings", "folders", "vault"] as const;
+export type WorkspaceCollection = (typeof WORKSPACE_COLLECTIONS)[number];
+export type WorkspaceChange = { c: WorkspaceCollection; id: string; u: number; deleted?: boolean; doc?: unknown };
+/** Last-writer-wins by the client's edit time `u`; a tie keeps what the server has so a replayed push never churns. */
+export const incomingWins = (existingU: number | undefined, incomingU: number) => existingU === undefined || incomingU > existingU;
+let wsIndexed = false;
+const PAGE = 150; // keeps each response well under the 4.5MB serverless limit
+/** Applies a batch of changes, then returns everything that changed on the server since `since` (ISO time). `next` is the new cursor. */
+export async function workspaceSync(changes: WorkspaceChange[], since: string) {
+  const c = (await database()).collection<{ _id: string; c: string; id: string; u: number; deleted: boolean; doc: unknown; at: Date }>("workspace");
+  if (!wsIndexed) { await c.createIndex({ at: 1 }); wsIndexed = true; }
+  let accepted = 0;
+  for (const ch of changes) {
+    const _id = `${ch.c}:${ch.id}`; const at = new Date();
+    const set = { c: ch.c, id: ch.id, u: ch.u, deleted: !!ch.deleted, doc: ch.deleted ? null : ch.doc, at };
+    try {
+      const r = await c.updateOne({ _id, u: { $lt: ch.u } }, { $set: set });
+      if (r.matchedCount) { accepted++; continue; }
+      await c.insertOne({ _id, ...set }); accepted++; // no document yet
+    } catch (e) { if ((e as { code?: number }).code !== 11000) throw e; /* exists with an equal or newer u: server keeps its copy */ }
+  }
+  const rows = await c.find({ at: { $gt: new Date(since) } }).sort({ at: 1 }).limit(PAGE).toArray();
+  const last = rows.at(-1)?.at;
+  return {
+    accepted,
+    // step back 1ms so rows sharing the boundary instant are never skipped; seeing one twice is harmless (clients compare `u`)
+    next: last ? new Date(last.getTime() - 1).toISOString() : since,
+    more: rows.length === PAGE,
+    changes: rows.map((r) => ({ c: r.c, id: r.id, u: r.u, deleted: r.deleted, doc: r.doc })),
+  };
+}
+
+/* ───────── document file storage (chunked: serverless request bodies are capped at ~4.5MB) ───────── */
+import { Binary } from "mongodb";
+export const FILE_CHUNK = 3 * 1024 * 1024;
+const validFileId = (id: string) => /^[A-Za-z0-9_:.-]{1,120}$/.test(id);
+export async function putFileChunk(id: string, n: number, data: Buffer) {
+  if (!validFileId(id) || !Number.isInteger(n) || n < 0 || n > 400 || data.length > FILE_CHUNK + 1024) return false;
+  await (await database()).collection<{ _id: string; fileId: string; n: number; data: Binary }>("file_chunks").replaceOne({ _id: `${id}#${n}` }, { fileId: id, n, data: new Binary(data) }, { upsert: true });
+  return true;
+}
+/** Seals an upload: records size/type/chunk count and removes any leftover chunks from an earlier, longer version. */
+export async function commitFile(id: string, meta: { chunks: number; size: number; mime: string }) {
+  if (!validFileId(id)) return false;
+  const d = await database(); const chunks = d.collection("file_chunks");
+  if ((await chunks.countDocuments({ fileId: id, n: { $lt: meta.chunks } })) !== meta.chunks) return false; // a chunk is missing
+  await chunks.deleteMany({ fileId: id, n: { $gte: meta.chunks } });
+  await d.collection("files").replaceOne({ _id: id } as never, { _id: id, ...meta, at: new Date() } as never, { upsert: true });
+  return true;
+}
+export async function fileMeta(id: string) { return validFileId(id) ? ((await (await database()).collection("files").findOne({ _id: id } as never)) as { chunks: number; size: number; mime: string } | null) : null; }
+export async function getFileChunk(id: string, n: number) {
+  if (!validFileId(id)) return null;
+  const row = await (await database()).collection<{ _id: string; data: Binary }>("file_chunks").findOne({ _id: `${id}#${n}` });
+  return row ? Buffer.from(row.data.buffer) : null;
+}
+export async function removeFile(id: string) {
+  if (!validFileId(id)) return false; const d = await database();
+  await d.collection("file_chunks").deleteMany({ fileId: id }); await d.collection("files").deleteOne({ _id: id } as never); return true;
+}
+
+/* ───────── secrets live in the database (only MONGODB_URI, needed to reach it, stays in the environment) ─────────
+   `secrets` holds the owner's email + salted password hash and the agent key's SHA-256; `sessions` holds SHA-256 of each signed-in
+   device's token. Nothing here is reversible, so a copy of the database does not hand out working keys. */
+const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+const sameHex = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+export async function getOwner() { return (await (await database()).collection("secrets").findOne({ _id: "owner" } as never)) as { email: string; passwordHash: string } | null; }
+export async function setOwner(email: string, passwordHash: string) { await (await database()).collection("secrets").updateOne({ _id: "owner" } as never, { $set: { email: email.trim().toLowerCase(), passwordHash, updatedAt: new Date() } }, { upsert: true }); }
+export async function setAgentKey(key: string) { await (await database()).collection("secrets").updateOne({ _id: "agent_api_key" } as never, { $set: { hash: sha(key), updatedAt: new Date() } }, { upsert: true }); }
+/** True when `given` is the agent key. Until one is stored in the database the AGENT_API_KEY environment variable is honoured as a transition. */
+export async function agentKeyOk(given: string | undefined) {
+  if (!given) return false;
+  const row = (await (await database()).collection("secrets").findOne({ _id: "agent_api_key" } as never)) as { hash: string } | null;
+  if (row) return sameHex(sha(given), row.hash);
+  const env = process.env.AGENT_API_KEY;
+  return !!env && sameHex(sha(given), sha(env));
+}
+let sessionIndexed = false;
+const seen = new Map<string, number>(); // short-lived cache so a busy sync does not query the database on every request
+export async function createSession(days: number) {
+  const c = (await database()).collection<{ _id: string; createdAt: Date; expiresAt: Date }>("sessions");
+  if (!sessionIndexed) { await c.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); sessionIndexed = true; }
+  const token = `jh_${randomBytes(32).toString("base64url")}`; const now = new Date();
+  await c.insertOne({ _id: sha(token), createdAt: now, expiresAt: new Date(now.getTime() + days * 86_400_000) });
+  return token;
+}
+export async function sessionValid(token: string | undefined) {
+  if (!token || !token.startsWith("jh_")) return false;
+  const id = sha(token); const hit = seen.get(id);
+  if (hit && hit > Date.now()) return true;
+  const row = await (await database()).collection<{ _id: string; expiresAt: Date }>("sessions").findOne({ _id: id });
+  if (!row || row.expiresAt.getTime() < Date.now()) { seen.delete(id); return false; }
+  seen.set(id, Date.now() + 60_000);
+  return true;
+}
+export async function endSession(token: string | undefined) { if (!token) return; const id = sha(token); seen.delete(id); await (await database()).collection<{ _id: string }>("sessions").deleteOne({ _id: id }); }

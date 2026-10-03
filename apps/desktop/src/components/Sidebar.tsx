@@ -1,6 +1,6 @@
 import { BellIcon, BriefcaseIcon, BuildingOffice2Icon, CalendarDaysIcon, ChartBarIcon, InboxArrowDownIcon, Cog6ToothIcon, DocumentPlusIcon, DocumentTextIcon, InboxIcon, KeyIcon, LockClosedIcon, MagnifyingGlassIcon, PlusCircleIcon, Squares2X2Icon, UserGroupIcon, UserPlusIcon, ViewColumnsIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
-import mark from "../assets/job-hunt-os-mark.svg";
+import { Mark } from "./Mark";
 import { useData } from "../lib/store";
 import { useUI, type Route } from "../lib/ui";
 import { pickFiles } from "../lib/files";
@@ -40,7 +40,7 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="traffic-space" data-tauri-drag-region />
       <div className="brand">
-        <img src={mark} alt="" />
+        <Mark size={30} />
         <b>Job Hunt OS</b>
       </div>
       <nav>

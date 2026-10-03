@@ -47,7 +47,7 @@ export function GateDetail({ g, onApprove, onDecide, onOpenJob, onKanban, onCopi
   const copy = async () => { try { await navigator.clipboard.writeText(e.opportunity.application.apply_url); onCopied(); } catch { /* clipboard unavailable */ } setMenu(false); };
   const apply = e.opportunity.application.apply_url;
   // records backfilled from Telegram carry a placeholder reason; show a friendlier line instead
-  const reason = m.reason && !/^Imported from the GATE relay/i.test(m.reason) ? m.reason : `GATE Scout scored this ${Math.round(m.score)}% when it was discovered. A detailed breakdown wasn't captured for this one.`;
+  const reason = m.reason && !/^Imported from the GATE relay/i.test(m.reason) ? m.reason : `Scored ${Math.round(m.score)}% at discovery. Detailed breakdown unavailable.`;
   const hasAssessment = m.matching_skills.length + m.matching_experience.length + m.matching_education.length > 0;
   const notes = [e.opportunity.description_summary, el.work_authorization_note].filter(Boolean) as string[];
   const place = locationText(e);
@@ -81,7 +81,6 @@ export function GateDetail({ g, onApprove, onDecide, onOpenJob, onKanban, onCopi
               )}
             </div>
           </div>
-          <button className="btn gd-open" onClick={() => openExternal(apply)}>Open on {e.company.name}<ArrowTopRightOnSquareIcon /></button>
         </div>
       </header>
 
@@ -93,7 +92,7 @@ export function GateDetail({ g, onApprove, onDecide, onOpenJob, onKanban, onCopi
           <div>
             <span className={`gd-level ${level}`}>{level} match</span>
             <p>{reason}</p>
-            <small>Score reflects résumé and requirement alignment, not your chance of an offer.</small>
+            <small>Match score, not offer odds.</small>
           </div>
         </section>
 
@@ -162,7 +161,6 @@ export function GateDetail({ g, onApprove, onDecide, onOpenJob, onKanban, onCopi
         {g.gateStatus === "approved" && <>{g.linkedJobId && <button className="btn primary lg" onClick={onOpenJob}>View in pipeline</button>}<button className="btn lg" onClick={onKanban}>Open Kanban</button></>}
         {["dismissed", "expired", "duplicate"].includes(g.gateStatus) && <button className="btn lg" onClick={() => onDecide("discovered")}><ArrowPathRoundedSquareIcon />Restore to inbox</button>}
         <span className="gd-sep" />
-        <button className="btn lg gd-post" onClick={() => openExternal(apply)}>Open posting<ArrowTopRightOnSquareIcon /></button>
         <small><ShieldOutline />Approving adds this to your Saved column. GATE never submits an application for you.</small>
       </footer>
     </>

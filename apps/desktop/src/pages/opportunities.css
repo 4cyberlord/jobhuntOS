@@ -11,9 +11,9 @@
 .opp-co { display: flex; align-items: center; gap: 12px; }
 .opp-co .logo { border-radius: 9px; }
 .opp-role { font-weight: 500; }
-.opp-page td small { font-size: 12px; }
+.opp-page td small { font-size: calc(12px * var(--fs, 1)); }
 .opp-match { color: var(--green); }
-.opp-foot { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.opp-foot { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: calc(13px * var(--fs, 1)); }
 .opp-pager { display: flex; align-items: center; gap: 10px; }
 .opp-pager .icon-btn { width: 30px; height: 30px; }
 .opp-pager .icon-btn:disabled { opacity: 0.4; pointer-events: none; }

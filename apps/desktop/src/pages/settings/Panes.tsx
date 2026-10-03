@@ -9,6 +9,7 @@ import type { Settings } from "../../lib/types";
 import { Field, Progress, Toggle } from "../../components/ui";
 import { isTauri, saveBlob } from "../../lib/tauri";
 import { pickFiles } from "../../lib/files";
+import { useWorkspaceStatus, workspaceSyncNow } from "../../lib/workspaceSync";
 import { syncNow, useSyncConfig, useSyncStatus, writeSyncConfig } from "../../lib/gateSync";
 import { fmtAgo } from "../../lib/format";
 import { lockVault, vaultExists, vaultUnlocked } from "../../lib/vault";
@@ -41,22 +42,18 @@ const Row = ({ icon, title, sub, children }: { icon?: ReactNode; title: string; 
 );
 const Soon = () => <span className="set-soon">Coming soon</span>;
 
-const AVATAR_KEY = "jhos.avatar";
-const readAvatar = () => { try { return localStorage.getItem(AVATAR_KEY) ?? ""; } catch { return ""; } };
-
 export function Account({ goto }: { goto: (s: string) => void }) {
   const { data } = useData();
   const { openModal, toast } = useUI();
   const [p, set, saved] = useDraft("profile");
-  const [avatar, setAvatar] = useState(readAvatar);
+  const avatar = p.avatar ?? "";
   const initials = (p.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const changePhoto = async () => {
     const [f] = await pickFiles("image/png,image/jpeg,image/webp", false);
     if (!f) return;
     if (f.size > 1_500_000) return toast("Choose an image under 1.5 MB", "warn");
     const url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(f); });
-    try { localStorage.setItem(AVATAR_KEY, url); } catch { return toast("Could not store the photo", "warn"); }
-    setAvatar(url); toast("Photo updated");
+    set({ avatar: url }); toast("Photo updated");
   };
   const docs = data.documents.filter((d) => !d.trashed).length;
   const hasVault = vaultExists();
@@ -82,11 +79,11 @@ export function Account({ goto }: { goto: (s: string) => void }) {
         <div className="set-saved">{saved ? "All changes saved" : ""}</div>
       </Card>
 
-      <Card title="Plan & Usage" sub="Personal plan. Everything is stored locally on this device." aside={<button className="btn" style={{ color: "var(--blue)" }} onClick={() => goto("Billing & Plan")}>Manage Plan</button>}>
+      <Card title="Plan & Usage" sub="Personal plan. Everything is stored securely on your own server." aside={<button className="btn" style={{ color: "var(--blue)" }} onClick={() => goto("Billing & Plan")}>Manage Plan</button>}>
         <div className="set-usage">
-          <div className="plan"><span className="set-tile solid"><StarIcon /></span><span><b>Personal plan</b><small>Local, single user</small><small>No subscription needed</small></span></div>
-          {([["Jobs Tracked", data.jobs.length, 500, "blue", BriefcaseIcon], ["Documents", docs, 250, "purple", DocumentTextIcon], ["Companies", data.companies.length, 250, "green", BuildingOffice2Icon]] as const).map(([l, n, max, tone]) => (
-            <div key={l} className="set-meter"><small>{l}</small><b>{n} / {max}</b><Progress value={n} max={max} tone={tone} /></div>
+          <div className="plan"><span className="set-tile solid"><StarIcon /></span><span><b>Personal plan</b><small>Private, single user</small><small>No limits, no subscription</small></span></div>
+          {([["Jobs Tracked", data.jobs.length, "blue"], ["Documents", docs, "purple"], ["Companies", data.companies.length, "green"]] as const).map(([l, n, tone]) => (
+            <div key={l} className="set-meter"><small>{l}</small><b>{n.toLocaleString()} <span className="set-unl">Unlimited</span></b><Progress value={1} max={1} tone={tone} /></div>
           ))}
         </div>
       </Card>
@@ -108,6 +105,8 @@ export function Account({ goto }: { goto: (s: string) => void }) {
 export function Appearance() {
   const { data, act } = useData();
   const a = data.settings.appearance;
+  const fs = a.fontScale ?? 100;
+  const setFs = (v: number) => act.updateSettings("appearance", { fontScale: Math.min(130, Math.max(75, v)) });
   return (
     <Card title="Appearance" sub="Theme, density, and display.">
       <div className="set-rows">
@@ -116,6 +115,15 @@ export function Appearance() {
         </Row>
         <Row title="Density" sub="Compact tightens the header and spacing.">
           <div className="set-seg" role="radiogroup" aria-label="Density">{(["comfortable", "compact"] as const).map((t) => <button key={t} role="radio" aria-checked={a.density === t} className={a.density === t ? "on" : ""} onClick={() => act.updateSettings("appearance", { density: t })}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div>
+        </Row>
+        <Row title="Font size" sub="Scales all text in the app. Applies instantly.">
+          <div className="fs-ctl">
+            <button className="btn sm" aria-label="Smaller text" onClick={() => setFs(fs - 5)}>A−</button>
+            <input type="range" min={75} max={130} step={5} value={fs} aria-label="Font size" onChange={(e) => setFs(+e.target.value)} />
+            <button className="btn sm" aria-label="Larger text" onClick={() => setFs(fs + 5)}>A+</button>
+            <b>{fs}%</b>
+            <button className="btn sm" disabled={fs === 100} onClick={() => setFs(100)}>Reset</button>
+          </div>
         </Row>
       </div>
     </Card>
@@ -194,6 +202,7 @@ export function Agent() {
 function GateConnection() {
   const cfg = useSyncConfig();
   const st = useSyncStatus();
+  const ws = useWorkspaceStatus();
   const [url, setUrl] = useState(cfg.apiUrl);
   const [key, setKey] = useState(cfg.syncKey);
   const [every, setEvery] = useState(String(cfg.intervalSec));
@@ -202,17 +211,18 @@ function GateConnection() {
   return (
     <div className="set-note" style={{ marginTop: 14 }}>
       <b>GATE Scout connection</b>
-      <p style={{ margin: "4px 0 12px", color: "var(--muted)" }}>Pull discovered opportunities from your Job Hunt OS API into the GATE Inbox, and report Approve / Dismiss decisions back. Uses the desktop sync key (DESKTOP_SYNC_KEY), never the agent key. The key is stored only on this Mac and is excluded from exports.</p>
+      <p style={{ margin: "4px 0 12px", color: "var(--muted)" }}>Pull discovered opportunities from your Job Hunt OS API into the GATE Inbox and report Approve / Dismiss decisions back. The same connection also keeps your jobs, companies, contacts, calendar, tasks, notifications, agent inbox and profile in step across devices (the credential vault, document files and appearance stay on this device). Uses the desktop sync key (DESKTOP_SYNC_KEY), never the agent key. The key is stored only on this Mac and is excluded from exports.</p>
       <div className="form-grid">
         <Field label="API URL"><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.example.com" /></Field>
         <Field label="Desktop sync key"><input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="DESKTOP_SYNC_KEY" autoComplete="off" /></Field>
         <Field label="Check every (seconds)"><input type="number" min={30} value={every} onChange={(e) => setEvery(e.target.value)} /></Field>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-        <button className="btn primary" disabled={!dirty || !valid} onClick={() => { writeSyncConfig({ apiUrl: url.trim(), syncKey: key.trim(), intervalSec: Math.max(30, Number(every) || 120) }); }}>Save connection</button>
-        <button className="btn" disabled={!(cfg.apiUrl && cfg.syncKey)} onClick={() => syncNow()}>Sync now</button>
+        <button className="btn primary" disabled={!dirty || !valid} onClick={() => { writeSyncConfig({ apiUrl: url.trim(), syncKey: key.trim(), intervalSec: Math.max(30, Number(every) || 120) }); setTimeout(() => void workspaceSyncNow(), 50); }}>Save connection</button>
+        <button className="btn" disabled={!(cfg.apiUrl && cfg.syncKey)} onClick={() => { void syncNow(); void workspaceSyncNow(); }}>Sync now</button>
         {(cfg.apiUrl || cfg.syncKey) && <button className="btn danger" onClick={() => { writeSyncConfig({ apiUrl: "", syncKey: "", intervalSec: 120 }); setUrl(""); setKey(""); }}>Disconnect</button>}
         <span className="muted">{st.state === "off" ? "Not connected" : st.state === "error" ? st.error : st.state === "syncing" ? "Syncing…" : st.lastAt ? `Last synced ${fmtAgo(st.lastAt)}` : "Connected"}</span>
+        <span className="muted">Workspace: {ws.state === "off" ? "off" : ws.state === "error" ? ws.error : ws.state === "syncing" ? "syncing…" : ws.lastAt ? `synced ${fmtAgo(ws.lastAt)}${ws.pending ? ` · ${ws.pending} waiting` : ""}` : "connected"}</span>
       </div>
     </div>
   );
@@ -264,7 +274,7 @@ const Simple = ({ title, sub, children }: { title: string; sub: string; children
 export const Team = () => <Simple title="Team & Collaboration" sub="Manage team members and permissions."><div className="set-note">Job Hunt OS is a private, single-user app. Sharing and team workspaces are not available.</div><div className="set-actions" style={{ marginTop: 12 }}><Soon /></div></Simple>;
 export const Billing = () => (
   <Simple title="Billing & Plan" sub="Subscription, usage, and invoices.">
-    <div className="set-rows"><Row icon={<CreditCardIcon />} title="Personal plan" sub="Free, local only. No payment method or invoices."><span className="set-soon">No billing</span></Row></div>
+    <div className="set-rows"><Row icon={<CreditCardIcon />} title="Personal plan" sub="Free and unlimited. No payment method or invoices."><span className="set-soon">No billing</span></Row></div>
   </Simple>
 );
 export const Shortcuts = () => (

@@ -182,11 +182,34 @@ export function seed(): AppData {
       { id: "ac5", at: now - DAY, icon: "doc", title: "Resume updated", subtitle: "Updated resume v3.pdf" },
     ],
     settings: {
-      profile: { name: "Charles A. Boakye", email: "charles@example.com", title: "Computer Science Student", location: "San Francisco, CA", phone: "+1 (415) 555-0133", linkedin: "linkedin.com/in/charles", website: "", bio: "Passionate about building scalable products and solving complex problems." },
+      profile: { name: "", email: "", title: "", location: "", phone: "", linkedin: "", website: "", bio: "" },
       appearance: { theme: "light", density: "comfortable" },
       notify: { interviews: true, deadlines: true, followups: true, agent: true, system: true },
       prefs: { roles: "Software Engineering Intern, Product Intern", locations: "San Francisco, Remote, Hybrid", salary: "$38K – $60K", companies: "Top tech, startups, open to new", keywords: "Product, strategy, growth", level: "Internship" },
       agent: { active: true },
     },
   } as AppData;
+}
+
+/** What a brand-new device starts with before the server's workspace arrives: no sample data, just default settings. */
+export function emptyData(): AppData {
+  return { ...seed(), gate: [], jobs: [], companies: [], contacts: [], documents: [], credentials: [], events: [], tasks: [], notifications: [], inbox: [], activity: [] };
+}
+
+const SAMPLE_LISTS = ["jobs", "companies", "contacts", "events", "tasks", "notifications", "inbox", "activity", "documents", "credentials"] as const;
+/** Removes the built-in sample records (matched by their fixed ids) and any company that only existed for a sample job. Returns the same object when nothing matched. */
+export function stripSampleData(d: AppData): AppData {
+  const sample = seed();
+  let out = d; let changed = false;
+  for (const c of SAMPLE_LISTS) {
+    const ids = new Set((sample[c] as { id: string }[]).map((x) => x.id));
+    const rows = (out[c] as { id: string }[]) ?? [];
+    const kept = rows.filter((x) => !ids.has(x.id));
+    if (kept.length !== rows.length) { out = { ...out, [c]: kept } as AppData; changed = true; }
+  }
+  const sampleNames = new Set(sample.jobs.map((j) => j.company.toLowerCase()));
+  const used = new Set(out.jobs.map((j) => j.company.toLowerCase()));
+  const companies = out.companies.filter((c) => !sampleNames.has(c.name.toLowerCase()) || used.has(c.name.toLowerCase()));
+  if (companies.length !== out.companies.length) { out = { ...out, companies }; changed = true; }
+  return changed ? out : d;
 }

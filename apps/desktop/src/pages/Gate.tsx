@@ -25,10 +25,10 @@ const TABS: { id: Tab; label: string; icon?: string; match: (g: GateOpportunity)
 const QUICK: { id: string; label: string }[] = [{ id: "cpt_confirmed", label: "CPT confirmed" }, { id: "sponsorship_available", label: "Sponsorship" }, { id: "remote", label: "Remote" }, { id: "deadline_soon", label: "Deadline soon" }, { id: "official", label: "Official source" }];
 type Sort = "match" | "newest" | "deadline";
 const STAGES = [
-  { key: "all" as const, name: "Gather", sub: "discovered by GATE Scout", help: "New opportunities await your review", Icon: DocumentTextIcon, tone: "violet" },
-  { key: "review" as const, name: "Assess", sub: "waiting for your decision", help: "Review and evaluate fit", Icon: MagnifyingGlassIcon, tone: "blue" },
-  { key: "approved" as const, name: "Track", sub: "approved into your pipeline", help: "Moving forward", Icon: PaperAirplaneIcon, tone: "indigo" },
-  { key: "" as const, name: "Execute", sub: "applied, interviewing or offer", help: "Track your progress", Icon: CheckIcon, tone: "green" },
+  { key: "all" as const, name: "Gather", sub: "New matches", Icon: DocumentTextIcon, tone: "violet" },
+  { key: "review" as const, name: "Assess", sub: "Ready to review", Icon: MagnifyingGlassIcon, tone: "blue" },
+  { key: "approved" as const, name: "Track", sub: "In your pipeline", Icon: PaperAirplaneIcon, tone: "indigo" },
+  { key: "" as const, name: "Execute", sub: "Applied & active", Icon: CheckIcon, tone: "green" },
 ];
 
 export default function Gate() {
@@ -126,10 +126,10 @@ export default function Gate() {
       </div>
 
       <div className="g-stages">
-        {STAGES.map(({ key, name, sub, help, Icon, tone }) => (
+        {STAGES.map(({ key, name, sub, Icon, tone }) => (
           <button key={name} className={`g-stage ${tone} ${key && key === tab ? "on" : ""}`} onClick={() => (key ? setTab(key) : navigate("kanban"))}>
             <span className="g-stage-ico"><Icon /></span>
-            <span className="g-stage-body"><span className="g-stage-name">{name}</span><b>{stats[key]}</b><span className="g-stage-sub">{sub}</span><small>{help}</small></span>
+            <span className="g-stage-body"><span className="g-stage-name">{name}</span><b>{stats[key]}</b><span className="g-stage-sub">{sub}</span></span>
             <span className="g-stage-go"><ChevronRightIcon /></span>
           </button>
         ))}

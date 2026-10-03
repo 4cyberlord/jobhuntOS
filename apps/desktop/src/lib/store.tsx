@@ -1,31 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppData, AppNotification, CalEvent, Company, Contact, Credential, DocItem, InboxMessage, Job, Settings, Status, Task } from "./types";
-import { seed } from "./seed";
+import { emptyData, seed } from "./seed";
+import { registerVaultPersist, setVaultMeta } from "./vault";
 import { registerLogoUrls, registerWebsites } from "./logo";
 import { deleteFile, putFile } from "./filedb";
 import { uid } from "./format";
 import { approve, ingest, isOpen, SAMPLE_GATE_IDS, setStatus, type IngestItem, type IngestSummary } from "./gate";
 import { parseGatePayload, type GateStatus } from "@job-hunt-os/contracts";
-
-const KEY = "jhos.data.v2";
-
-function load(): AppData {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as AppData;
-      // one-time migration: agent discoveries used to live in the job list as "pending_review"; they now live in the GATE Inbox
-      if (!parsed.gate) parsed.jobs = (parsed.jobs ?? []).filter((j) => !(j.status === "pending_review" && /^j[1-5]$/.test(j.id)));
-      const merged = { ...seed(), ...parsed, settings: { ...seed().settings, ...parsed.settings } };
-      // one-time cleanup: drop the old demo discoveries, but never anything you approved, dismissed, saved or that came from the server
-      merged.gate = (merged.gate ?? []).filter((g) => !(SAMPLE_GATE_IDS.includes(g.id) && g.gateStatus === "discovered" && !g.linkedJobId && !g.remoteId));
-      return merged;
-    }
-  } catch {
-    /* corrupted or unavailable storage falls back to seed data */
-  }
-  return seed();
-}
 
 const extOf = (name: string) => (name.includes(".") ? name.split(".").pop()!.toUpperCase() : "FILE");
 const baseName = (name: string) => name.replace(/\.[^/.]+$/, "");
@@ -173,6 +154,10 @@ function makeActions(set: (fn: (d: AppData) => AppData) => void, get: () => AppD
         else set((d) => setStatus(d, g.id, x.status));
       }
     },
+    setVault: (vault: AppData["vault"]) => set((d) => ({ ...d, vault })),
+    /** Used by workspace sync to merge changes made on other devices. */
+    replaceWorkspace: (fn: (d: AppData) => AppData) => set(fn),
+    snapshot: () => get(),
     setGateStatus: (id: string, status: GateStatus) => set((d) => setStatus(d, id, status)),
     markGateSeen: (id: string) => set((d) => ({ ...d, gate: d.gate.map((g) => (g.id === id && !g.seen ? { ...g, seen: true } : g)) })),
     /** Approve to pipeline: creates the Job (stage Saved) + company upsert + deadline event. Returns the new/linked job. */
@@ -185,17 +170,17 @@ function makeActions(set: (fn: (d: AppData) => AppData) => void, get: () => AppD
 
     // settings
     updateSettings: <K extends keyof Settings>(section: K, patch: Partial<Settings[K]>) => set((d) => ({ ...d, settings: { ...d.settings, [section]: { ...(d.settings[section] as object), ...(patch as object) } } })),
-    resetDemo: () => set(() => seed()),
+    resetDemo: () => set((d) => ({ ...seed(), vault: d.vault })),
     /** Replace all state with an imported export (shape-validated). Returns false when the JSON is not a valid export. */
     importData(json: unknown): boolean {
       const o = json as Partial<AppData> | null;
       const arrays = ["jobs", "companies", "contacts", "documents", "credentials", "events", "tasks", "notifications", "inbox", "activity"] as const;
       if (!o || typeof o !== "object" || !arrays.every((k) => Array.isArray(o[k])) || typeof o.settings !== "object" || !o.settings) return false;
       const base = seed();
-      set(() => ({ ...base, ...(o as AppData), folders: Array.isArray(o.folders) ? o.folders : base.folders, settings: { ...base.settings, ...o.settings } }));
+      set((d) => ({ ...base, ...(o as AppData), vault: d.vault, folders: Array.isArray(o.folders) ? o.folders : base.folders, settings: { ...base.settings, ...o.settings } }));
       return true;
     },
-    clearAll: () => set((d) => ({ ...seed(), jobs: [], companies: [], contacts: [], documents: [], credentials: [], events: [], tasks: [], notifications: [], inbox: [], activity: [], settings: d.settings })),
+    clearAll: () => set((d) => ({ ...seed(), jobs: [], companies: [], contacts: [], documents: [], credentials: [], events: [], tasks: [], notifications: [], inbox: [], activity: [], settings: d.settings, vault: d.vault })),
   };
 }
 
@@ -203,7 +188,7 @@ type Ctx = { data: AppData; act: Actions };
 const DataCtx = createContext<Ctx | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(load);
+  const [data, setData] = useState<AppData>(emptyData);
   const ref = useRef(data);
   ref.current = data;
   // state is advanced synchronously through the ref so actions that read-then-write (ingest, approve) stay consistent
@@ -220,16 +205,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ...data.jobs.map((j): [string, string | null | undefined] => [j.company, j.gate?.envelope.company.logo_url]),
     ]);
   }, [data.gate, data.jobs, data.companies]);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(data));
-      } catch {
-        /* storage full or disabled; in-memory state still works */
-      }
-    }, 200);
-    return () => clearTimeout(t);
-  }, [data]);
+  // the vault's salt/verifier travel with the workspace; hand them to the vault module and save new ones through the store
+  useEffect(() => { setVaultMeta(data.vault); }, [data.vault]);
+  useEffect(() => { registerVaultPersist((vault) => act.setVault(vault)); }, [act]);
   return <DataCtx.Provider value={useMemo(() => ({ data, act }), [data, act])}>{children}</DataCtx.Provider>;
 }
 export function useData() {

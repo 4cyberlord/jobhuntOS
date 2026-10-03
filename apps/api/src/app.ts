@@ -3,7 +3,8 @@ import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUSES, normalizeIncoming, parseGatePayload, searchProfile, type LegacyGate } from "@job-hunt-os/contracts";
 import { timingSafeEqual } from "node:crypto";
-import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, setGateStatus, upsertPending } from "./repository.js";
+import { verifyPassword } from "./auth.js";
+import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile } from "./repository.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -14,21 +15,40 @@ export async function buildApp() {
   // The desktop app (Tauri webview or the Vite dev server) calls /v1/desktop from another origin, so allow exactly those origins.
   const desktopOrigins = new Set(["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://localhost:1420", ...(process.env.DESKTOP_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? [])]);
   app.addHook("onRequest", async (request, reply) => {
-    if (!request.url.startsWith("/v1/desktop")) return;
+    if (!request.url.startsWith("/v1/desktop") && !request.url.startsWith("/v1/auth")) return;
     const origin = request.headers.origin;
-    if (origin && desktopOrigins.has(origin)) reply.header("Access-Control-Allow-Origin", origin).header("Vary", "Origin").header("Access-Control-Allow-Headers", "Authorization, Content-Type").header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    if (origin && desktopOrigins.has(origin)) reply.header("Access-Control-Allow-Origin", origin).header("Vary", "Origin").header("Access-Control-Allow-Headers", "Authorization, Content-Type").header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     if (request.method === "OPTIONS") return reply.code(204).send();
   });
-  // Bearer keys are compared in constant time. Repeated failures from one address are throttled (stored in MongoDB because
-  // serverless instances share no memory), so guessing a key is impractical even though the API is public.
-  const ROLES: [string, string][] = [["/v1/agent", "AGENT_API_KEY"], ["/v1/desktop", "DESKTOP_SYNC_KEY"]];
+  // /v1/agent takes the agent key; /v1/desktop takes a session token from signing in. Both are checked against hashes in the database,
+  // compared in constant time. Repeated failures from one address are throttled (stored in MongoDB because serverless instances share no memory).
+  // A valid session never pays for other people's failures: for /v1/desktop the token is checked first and only a bad one reaches the throttle.
+  const ROLES: [string, (token: string | undefined) => Promise<boolean>, boolean][] = [["/v1/agent", agentKeyOk, true], ["/v1/desktop", sessionValid, false]];
+  const bearer = (request: FastifyRequest) => request.headers.authorization?.replace(/^Bearer\s+/i, "");
   app.addHook("onRequest", async (request, reply) => {
     const role = ROLES.find(([prefix]) => request.url.startsWith(prefix));
     if (!role || request.method === "OPTIONS") return;
-    if (await authBlocked(request.ip)) return reply.code(429).send({ error: "too many failed attempts, try again later" });
-    if (!sameKey(request.headers.authorization?.replace(/^Bearer\s+/i, ""), process.env[role[1]])) { await recordAuthFailure(request.ip); return reply.code(401).send({ error: "unauthorized" }); }
+    const [, check, blockFirst] = role;
+    if (blockFirst && await authBlocked(request.ip)) return reply.code(429).send({ error: "too many failed attempts, try again later" });
+    if (await check(bearer(request))) return;
+    if (!blockFirst && await authBlocked(request.ip)) return reply.code(429).send({ error: "too many failed attempts, try again later" });
+    await recordAuthFailure(request.ip); return reply.code(401).send({ error: "unauthorized" });
   });
   app.addHook("onSend", async (_request, reply) => { reply.header("Cache-Control", "no-store"); });
+  // Sign-in for the desktop app: the owner's email + password (stored as a salted hash in the database) buy a session token.
+  const loginBody = z.object({ email: z.string().max(200), password: z.string().min(1).max(200), keep: z.boolean().optional() });
+  app.post("/v1/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const owner = await getOwner();
+    if (!owner) return reply.code(503).send({ error: "sign-in is not set up on the server yet" });
+    if (await authBlocked(request.ip)) return reply.code(429).send({ error: "too many failed attempts, try again later" });
+    const body = loginBody.safeParse(request.body);
+    if (!body.success) return reply.code(422).send({ error: "invalid payload" });
+    const emailOk = sameKey(body.data.email.trim().toLowerCase(), owner.email.trim().toLowerCase());
+    const passwordOk = verifyPassword(body.data.password, owner.passwordHash); // both checks always run
+    if (!(emailOk && passwordOk)) { await recordAuthFailure(request.ip); return reply.code(401).send({ error: "incorrect email or password" }); }
+    return { syncKey: await createSession(body.data.keep === false ? 1 : 90) };
+  });
+  app.delete("/v1/desktop/session", async (request) => { await endSession(bearer(request)); return { ok: true }; });
   app.get("/health", async () => ({ ok: true }));
   app.get("/v1/agent/search-profile", async () => searchProfile);
   app.post("/v1/agent/opportunities", async (request, reply) => { if (containsSensitiveKey(request.body)) return reply.code(400).send({ error: "sensitive fields are forbidden" }); const parsed = agentOpportunitySchema.safeParse(request.body); if (!parsed.success) return reply.code(422).send({ error: "invalid payload", details: parsed.error.flatten() }); const item = await upsertPending(parsed.data, duplicateKey(parsed.data)); await audit("agent.opportunity.upsert", parsed.data.externalId); return reply.code(201).send({ id: item?._id, reviewStatus: "pending_review" }); });
@@ -79,5 +99,26 @@ export async function buildApp() {
   app.get("/v1/desktop/gate/opportunities", async (request, reply) => { const since = (request.query as { since?: string }).since; if (since && Number.isNaN(Date.parse(since))) return reply.code(422).send({ error: "since must be an ISO date" }); return { items: await gateForDesktop(since) }; });
   const gateStatusBody = z.object({ gate_status: z.enum(GATE_STATUSES), linked_job_id: z.string().max(100).optional() });
   app.post("/v1/desktop/gate/:id/status", async (request, reply) => { const body = gateStatusBody.safeParse(request.body); if (!body.success) return reply.code(422).send({ error: "invalid payload", details: body.error.flatten() }); const ok = await setGateStatus((request.params as { id: string }).id, body.data.gate_status, body.data.linked_job_id); return ok ? reply.send({ success: true }) : reply.code(404).send({ error: "not found" }); });
+  const workspaceBody = z.object({
+    since: z.string().datetime().default("1970-01-01T00:00:00.000Z"),
+    changes: z.array(z.object({ c: z.enum(WORKSPACE_COLLECTIONS), id: z.string().min(1).max(120), u: z.number().int().positive(), deleted: z.boolean().optional(), doc: z.record(z.string(), z.unknown()).optional() })).max(300).default([]),
+  });
+  app.post("/v1/desktop/workspace/sync", { bodyLimit: 4 * 1024 * 1024 }, async (request, reply) => {
+    const body = workspaceBody.safeParse(request.body);
+    if (!body.success) return reply.code(422).send({ error: "invalid payload", details: body.error.flatten() });
+    if (body.data.changes.some((ch) => !ch.deleted && !ch.doc)) return reply.code(422).send({ error: "a change needs a doc unless it is a deletion" });
+    // Sealed vault entries (AES-GCM ciphertext) and the vault's salt/verifier legitimately use words like "secret", so only they are exempt from the key check.
+    if (body.data.changes.some((ch) => ch.c !== "credentials" && ch.c !== "vault" && containsSensitiveKey(ch.doc))) return reply.code(400).send({ error: "sensitive fields are forbidden" });
+    return workspaceSync(body.data.changes, body.data.since);
+  });
+
+  // Document files, in chunks (each request stays under the serverless body cap)
+  app.addContentTypeParser("application/octet-stream", { parseAs: "buffer", bodyLimit: FILE_CHUNK + 4096 }, (_req, body, done) => done(null, body));
+  type FileParams = { id: string; n?: string };
+  app.put("/v1/desktop/files/:id/:n", async (request, reply) => { const { id, n } = request.params as FileParams; const ok = Buffer.isBuffer(request.body) && await putFileChunk(id, Number(n), request.body); return ok ? { ok: true } : reply.code(422).send({ error: "invalid chunk" }); });
+  app.post("/v1/desktop/files/:id/commit", async (request, reply) => { const b = z.object({ chunks: z.number().int().min(1).max(400), size: z.number().int().min(0), mime: z.string().max(200) }).safeParse(request.body); if (!b.success) return reply.code(422).send({ error: "invalid payload" }); return (await commitFile((request.params as FileParams).id, b.data)) ? { ok: true } : reply.code(409).send({ error: "upload incomplete" }); });
+  app.get("/v1/desktop/files/:id", async (request, reply) => { const m = await fileMeta((request.params as FileParams).id); return m ? { chunks: m.chunks, size: m.size, mime: m.mime } : reply.code(404).send({ error: "not found" }); });
+  app.get("/v1/desktop/files/:id/:n", async (request, reply) => { const { id, n } = request.params as FileParams; const buf = await getFileChunk(id, Number(n)); return buf ? reply.header("Content-Type", "application/octet-stream").send(buf) : reply.code(404).send({ error: "not found" }); });
+  app.delete("/v1/desktop/files/:id", async (request, reply) => (await removeFile((request.params as FileParams).id)) ? { ok: true } : reply.code(422).send({ error: "invalid id" }));
   return app;
 }

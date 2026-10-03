@@ -40,7 +40,7 @@ export function GateCard({ g, active, onClick }: { g: GateOpportunity; active: b
           {chipsFor(g).map(([t, tone]) => <span key={t} className={tone}>{tone === "ok" && <CheckIcon />}{tone === "warn" && <XMarkIcon />}{t}</span>)}
         </div>
         <div className="g-chips sub">
-          {e.source.official ? <span className="info"><ShieldCheckIcon />Official source</span> : <span className="warn">Unverified source</span>}
+          {e.source.official ? <span className="info"><ShieldCheckIcon />Official</span> : <span className="warn">Unverified</span>}
           {spons === "not_available" && <span className="warn">No sponsorship</span>}
           {spons === "available" && <span className="ok"><CheckIcon />Sponsorship</span>}
         </div>
@@ -52,7 +52,7 @@ export function GateCard({ g, active, onClick }: { g: GateOpportunity; active: b
       <div className="g-card-score">
         <Ring score={e.match.score} size={58} />
         <small className={level}>{level} match</small>
-        {pay !== "—" && <em>{pay.replace("–", "–")}</em>}
+        {pay !== "—" && <em>{pay}</em>}
       </div>
     </button>
   );

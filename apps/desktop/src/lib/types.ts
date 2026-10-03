@@ -176,11 +176,13 @@ export type InboxMessage = {
 };
 
 export type Settings = {
-  profile: { name: string; email: string; title: string; location: string; phone: string; linkedin: string; website: string; bio: string };
-  appearance: { theme: "light" | "dark" | "system"; density: "comfortable" | "compact" };
+  profile: { name: string; email: string; title: string; location: string; phone: string; linkedin: string; website: string; bio: string; /** profile photo as a data URL */ avatar?: string };
+  appearance: { theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; fontScale?: number };
   notify: { interviews: boolean; deadlines: boolean; followups: boolean; agent: boolean; system: boolean };
   prefs: { roles: string; locations: string; salary: string; companies: string; keywords: string; level: string };
   agent: { active: boolean };
+  /** notification id -> wake-up time (ms) for snoozed notifications */
+  snoozed?: Record<string, number>;
 };
 
 /** A discovered opportunity in the GATE Inbox. `gateStatus` is the inbox lifecycle, NOT the application stage. */
@@ -212,4 +214,6 @@ export type AppData = {
   inbox: InboxMessage[];
   activity: { id: string; at: number; icon: string; title: string; subtitle: string }[];
   settings: Settings;
+  /** vault salt + verifier (ciphertext only; the master password never leaves the device) */
+  vault?: { salt: string; verifier: { iv: string; ct: string } };
 };

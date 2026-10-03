@@ -1,26 +1,26 @@
 .ga { display: grid; gap: 12px; }
 .ga-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
 .ga.compact .ga-card { border-radius: 12px; padding: 12px 14px; }
-.ga-card h4 { font-size: 13px; font-weight: 700; color: var(--text-2); }
+.ga-card h4 { font-size: calc(13px * var(--fs, 1)); font-weight: 700; color: var(--text-2); }
 .ga-card h4.ga-sub { margin-top: 4px; }
 .ga-match { grid-template-columns: auto 1fr; align-items: center; gap: 14px; background: linear-gradient(135deg, var(--blue-soft), var(--panel)); }
 .ga-match p { color: var(--text-2); line-height: 1.45; margin: 4px 0 6px; }
-.ga-match small { color: var(--muted); font-size: 12px; }
+.ga-match small { color: var(--muted); font-size: calc(12px * var(--fs, 1)); }
 .ga-ring { --c: var(--green); border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--c) var(--p), var(--line) 0); position: relative; flex: none; }
 .ga-ring::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--panel); }
 .ga-ring b { position: relative; color: var(--text); }
 .ga-ring.moderate { --c: var(--amber); } .ga-ring.weak { --c: var(--red); }
-.ga-level { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; padding: 3px 9px; border-radius: 7px; background: var(--green-soft); color: var(--green); }
+.ga-level { display: inline-block; font-size: calc(11px * var(--fs, 1)); font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; padding: 3px 9px; border-radius: 7px; background: var(--green-soft); color: var(--green); }
 .ga-level.moderate { background: var(--amber-soft); color: var(--amber); } .ga-level.weak { background: var(--red-soft); color: var(--red); }
 .ga-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ga-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px 3px 6px; border-radius: 8px; font-size: 12.5px; font-weight: 550; background: var(--green-soft); color: var(--green); }
+.ga-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px 3px 6px; border-radius: 8px; font-size: calc(12.5px * var(--fs, 1)); font-weight: 550; background: var(--green-soft); color: var(--green); }
 .ga-chip svg { width: 12px; height: 12px; }
-.ga-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; color: var(--text-2); }
+.ga-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: calc(13px * var(--fs, 1)); color: var(--text-2); }
 .ga-list li { display: flex; gap: 8px; align-items: flex-start; }
 .ga-list svg { width: 15px; height: 15px; margin-top: 2px; }
 .ga-list.good svg { color: var(--green); } .ga-list.gap svg { color: var(--amber); }
 .ga-grid { display: grid; }
-.ga-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.ga-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: calc(13px * var(--fs, 1)); }
 .ga-row:last-child { border-bottom: 0; }
 .ga-row > span { color: var(--muted); }
 .ga-row > b { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-align: right; }
@@ -29,10 +29,10 @@
 .ga-mark svg { width: 11px; height: 11px; }
 .ga-mark.ok { background: var(--green-soft); color: var(--green); } .ga-mark.bad { background: var(--red-soft); color: var(--red); } .ga-mark.q { background: var(--line); color: var(--muted); }
 .ga-mark.q svg { width: 14px; height: 14px; }
-.ga-note { font-size: 12.5px; color: var(--text-2); background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
+.ga-note { font-size: calc(12.5px * var(--fs, 1)); color: var(--text-2); background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
 .ga-open { display: inline-flex; align-items: center; gap: 5px; }
 .ga-open svg { width: 14px; height: 14px; }
 .ga-conf { width: 70px; height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; display: inline-block; }
 .ga-conf i { display: block; height: 100%; background: var(--blue); }
-.ga-flag { padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; background: var(--blue-soft); color: var(--blue); }
+.ga-flag { padding: 3px 9px; border-radius: 8px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; background: var(--blue-soft); color: var(--blue); }
 .ga-flag.warn { background: var(--amber-soft); color: var(--amber); }

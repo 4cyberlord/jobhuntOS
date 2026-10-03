@@ -1,0 +1,45 @@
+.lg { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 22px; background: radial-gradient(ellipse at 20% 10%, #eceaff, #f4f6ff 55%, #eaf0ff); color: #0f1b3d; overflow: auto; -webkit-user-select: none; user-select: none; }
+.lg-frame { width: min(1480px, 100%); height: min(960px, 100%); display: grid; grid-template-columns: 1.15fr 1fr; border-radius: 30px; overflow: hidden; background: #fff; box-shadow: 0 30px 80px rgba(70, 90, 200, .18); }
+.lg-hero { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 44px 52px; overflow: hidden; background: radial-gradient(60% 40% at 80% 5%, rgba(160,140,255,.45), transparent 70%), radial-gradient(70% 50% at 100% 100%, rgba(120,170,255,.4), transparent 70%), linear-gradient(160deg, #f6f4ff, #e9eeff); }
+.lg-brand { display: flex; align-items: center; gap: 12px; font-size: calc(20px * var(--fs, 1)); }
+.lg-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; background: rgba(170,150,255,.22); color: #5b3fd0; font-size: calc(13px * var(--fs, 1)); font-weight: 600; margin-top: 18px; }
+.lg-hero h1 { margin: 0; font-size: calc(clamp(34px, 3.6vw, 52px) * var(--fs, 1)); line-height: 1.08; letter-spacing: -1.4px; font-weight: 800; }
+.lg-hero h1 span { color: #1a62ff; }
+.lg-lead { margin: 0; max-width: 520px; font-size: calc(16.5px * var(--fs, 1)); line-height: 1.55; color: #4f5d80; }
+.lg-features { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 16px; max-width: 360px; position: relative; z-index: 2; }
+.lg-features li { display: flex; gap: 16px; align-items: center; }
+.lg-features b { display: block; font-size: calc(15.5px * var(--fs, 1)); }
+.lg-features small { display: block; margin-top: 2px; font-size: calc(13.5px * var(--fs, 1)); line-height: 1.4; color: #5a6788; }
+.lg-ico { width: 56px; height: 56px; flex: none; border-radius: 16px; display: grid; place-items: center; }
+.lg-ico svg { width: 26px; height: 26px; }
+.lg-ico.violet { background: #e8e1ff; color: #6a3df0; } .lg-ico.green { background: #d6f5e6; color: #15915f; } .lg-ico.orange { background: #ffe6d0; color: #f08a1c; } .lg-ico.blue { background: #dde9ff; color: #1b62e8; }
+.lg-preview { position: absolute; right: -90px; bottom: 56px; width: 470px; height: 300px; display: flex; border-radius: 16px; background: rgba(255,255,255,.88); border: 1px solid #fff; box-shadow: 0 30px 60px rgba(80,100,200,.25); transform: perspective(1200px) rotateY(-16deg) rotateX(4deg); overflow: hidden; }
+.lg-pv-side { width: 78px; padding: 16px 10px; display: grid; align-content: start; gap: 12px; background: #f4f6ff; } .lg-pv-side i { height: 9px; border-radius: 5px; background: #d5dcf2; }
+.lg-pv-main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.lg-pv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; } .lg-pv-stats span { padding: 10px; border-radius: 10px; background: #f6f8ff; display: grid; gap: 9px; } .lg-pv-stats i { height: 6px; width: 60%; border-radius: 3px; background: #cfd8f1; } .lg-pv-stats b { height: 14px; width: 40%; border-radius: 4px; background: #5b6cff; } .lg-pv-stats b.v { background: #8b5cf6; } .lg-pv-stats b.g { background: #1fb67a; }
+.lg-pv-chart { flex: 1; width: 100%; }
+
+.lg-panel { display: grid; place-items: center; padding: 40px; background: #fff; }
+.lg-form { width: min(500px, 100%); display: flex; flex-direction: column; }
+.lg-logo { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: calc(22px * var(--fs, 1)); margin-bottom: 26px; }
+.lg-form h2 { margin: 0; text-align: center; font-size: calc(clamp(32px, 3vw, 42px) * var(--fs, 1)); letter-spacing: -1px; font-weight: 800; }
+.lg-sub { margin: 10px 0 34px; text-align: center; color: #5a6788; font-size: calc(16.5px * var(--fs, 1)); }
+.lg-label { font-size: calc(15px * var(--fs, 1)); font-weight: 600; margin: 0 0 9px; }
+.lg-field { position: relative; display: flex; align-items: center; height: 56px; margin-bottom: 22px; border: 1.5px solid #dfe5f4; border-radius: 12px; background: #fbfcff; transition: border-color .15s, box-shadow .15s; }
+.lg-field:focus-within { border-color: #5b6cff; box-shadow: 0 0 0 4px rgba(91,108,255,.14); background: #fff; }
+.lg-field > svg { width: 22px; height: 22px; margin: 0 14px 0 18px; color: #6a7696; flex: none; }
+.lg .lg-field input { border: 0; box-shadow: none; padding: 0; border-radius: 0; flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: calc(16px * var(--fs, 1)); color: #0f1b3d; -webkit-user-select: text; user-select: text; }
+.lg .lg-field input::placeholder { color: #9aa5c0; }
+.lg-eye { border: 0; background: none; padding: 0 16px; height: 100%; cursor: pointer; color: #6a7696; } .lg-eye svg { width: 22px; height: 22px; }
+.lg-err { margin: -6px 0 16px; padding: 11px 14px; border-radius: 10px; background: #fff0f0; color: #b42318; border: 1px solid #f5c2c0; font-size: calc(14px * var(--fs, 1)); }
+.lg-submit { height: 58px; margin-top: 8px; border: 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font: inherit; font-size: calc(18px * var(--fs, 1)); font-weight: 600; color: #fff; background: linear-gradient(90deg, #1b62ff, #7c6cff 70%, #b07bff); box-shadow: 0 12px 26px rgba(80,100,255,.32); transition: transform .08s, opacity .15s; }
+.lg-submit svg { width: 22px; height: 22px; }
+.lg-submit:hover:not(:disabled) { transform: translateY(-1px); } .lg-submit:disabled { opacity: .55; cursor: default; box-shadow: none; }
+.lg-keep { display: flex; align-items: center; gap: 12px; margin-top: 24px; font-size: calc(15px * var(--fs, 1)); color: #4f5d80; cursor: pointer; }
+.lg-keep input { width: 20px; height: 20px; accent-color: #1b62ff; margin: 0; }
+@media (max-width: 1000px) { .lg-frame { grid-template-columns: 1fr; height: auto; } .lg-hero { display: none; } }
+@media (max-height: 760px) { .lg-hero .lg-features li:nth-child(n+3) { display: none; } .lg-preview { display: none; } }
+.lg .lg-field input.lg-masked { -webkit-text-security: disc; text-security: disc; letter-spacing: .5px; }
+.lg-caps { display: flex; align-items: center; gap: 8px; margin: -8px 0 16px; font-size: calc(13.5px * var(--fs, 1)); font-weight: 600; color: #a15c00; }
+.lg-caps svg { width: 17px; height: 17px; }
+.lg-field input::-webkit-credentials-auto-fill-button, .lg-field input::-webkit-contacts-auto-fill-button { visibility: hidden; display: none !important; pointer-events: none; position: absolute; right: 0; }
