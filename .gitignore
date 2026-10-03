@@ -1,0 +1,14 @@
+*.log
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+.qodo/
+.vercel
+apps/api/data/
+deploy/vercel-api/api/
+dist/
+lab5-evidence/
+node_modules/
+target/
+!.env.example

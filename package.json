@@ -1,0 +1,23 @@
+{
+  "name": "job-hunt-os",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "concurrently": "^10.0.5",
+    "puppeteer-core": "^25.12.0",
+    "semver": "^7.8.5",
+    "vite": "^8.3.2"
+  },
+  "scripts": {
+    "start": "concurrently --kill-others-on-fail --names API,APP --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:desktop\"",
+    "dev:api": "npm --workspace @job-hunt-os/api run dev",
+    "dev:desktop": "npm --workspace @job-hunt-os/desktop exec tauri dev",
+    "build:desktop": "npm --workspace @job-hunt-os/desktop exec tauri build",
+    "test": "npm -ws run test",
+    "typecheck": "npm -ws run typecheck"
+  }
+}

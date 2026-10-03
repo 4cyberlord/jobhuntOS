@@ -1,0 +1,17 @@
+[Unit]
+Description=Job Hunt OS watcher API
+After=network.target
+[Service]
+Type=simple
+User=jobhunt
+WorkingDirectory=/opt/job-hunt-os
+EnvironmentFile=/etc/job-hunt-os/api.env
+ExecStart=/usr/bin/npm --workspace @job-hunt-os/api run start
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/job-hunt-os
+[Install]
+WantedBy=multi-user.target

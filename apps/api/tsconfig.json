@@ -1,0 +1,1 @@
+{"compilerOptions":{"strict":true,"module":"NodeNext","moduleResolution":"NodeNext","target":"ESNext","types":["node"],"skipLibCheck":true,"noEmit":true}}

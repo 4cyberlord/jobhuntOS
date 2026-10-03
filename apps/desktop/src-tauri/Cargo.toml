@@ -1,0 +1,22 @@
+[package]
+name = "job-hunt-os"
+version = "0.1.0"
+description = "Private job search operating system"
+edition = "2021"
+
+[lib]
+name = "job_hunt_os_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+keyring = { version = "3", features = ["apple-native"] }
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["getrandom"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

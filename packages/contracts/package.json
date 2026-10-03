@@ -1,0 +1,16 @@
+{
+  "name": "@job-hunt-os/contracts",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "echo contracts-ok"
+  }
+}

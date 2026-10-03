@@ -1,0 +1,5 @@
+/* Shared page-level helpers. Each page also ships its own stylesheet next to its component. */
+.chip-select { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text-2); font-size: 13.5px; }
+.chip-select select { border: 0; background-color: transparent; padding: 0 22px 0 0; height: 100%; width: auto; box-shadow: none !important; font-weight: 500; }
+.toolbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.toolbar-row .search-field { width: 280px; }
