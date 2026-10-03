@@ -42,7 +42,7 @@ export function LoginScreen({ notice }: { notice?: string }) {
   };
 
   return (
-    <div className="lg">
+    <div className="lgn">
       <div className="lg-frame">
         <section className="lg-hero">
           <div className="lg-brand"><Mark size={42} /><b>Job Hunt OS</b></div>

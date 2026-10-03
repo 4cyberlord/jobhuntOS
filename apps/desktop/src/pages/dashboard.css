@@ -101,7 +101,8 @@
 .dash-sums em { font-style: normal; font-size: calc(12.5px * var(--fs, 1)); font-weight: 650; color: var(--muted); }
 .dash-sums em.up { color: var(--green); } .dash-sums em.down { color: var(--red); }
 
-.dash-match { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.c-match .dash-list { gap: 8px; }
+.dash-match { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
 .dash-match-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; border: 0; background: none; padding: 0; text-align: left; }
 .dash-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; max-height: 21px; overflow: hidden; }
 .dash-tags i { white-space: nowrap; }

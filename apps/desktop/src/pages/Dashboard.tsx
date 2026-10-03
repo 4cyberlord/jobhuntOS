@@ -133,7 +133,7 @@ export default function Dashboard() {
   const counts = useMemo(() => Object.fromEntries(PIPE.map((p) => [p.s, data.jobs.filter((j) => j.status === p.s).length])) as Record<Status, number>, [data.jobs]);
   const maxCount = Math.max(1, ...Object.values(counts));
   const openGate = useMemo(() => data.gate.filter(isOpen), [data.gate]);
-  const matches = useMemo(() => [...openGate].sort((a, b) => b.envelope.match.score - a.envelope.match.score).slice(0, 4), [openGate]);
+  const matches = useMemo(() => [...openGate].sort((a, b) => b.receivedAt - a.receivedAt).slice(0, 4), [openGate]);
   const jobById = (id?: string) => data.jobs.find((j) => j.id === id);
 
   const followUp = (j: Job) => {
