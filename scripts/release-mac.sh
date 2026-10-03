@@ -9,6 +9,9 @@ cd "$(dirname "$0")/.."
 for v in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
   [ -n "${!v:-}" ] || { echo "Missing $v. Set it in this terminal first (see the header of this script)."; exit 1; }
 done
+# the build also signs the update package, so it needs the update-signing key
+export TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$(cat "$HOME/.tauri/jobhuntos-updater.key")}"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-$(cat "$HOME/.tauri/jobhuntos-updater.password")}"
 security find-identity -v -p codesigning | grep -q "Developer ID Application" || { echo "No 'Developer ID Application' certificate in your keychain."; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "Uncommitted changes: commit first so the build can be reproduced."; exit 1; }
 

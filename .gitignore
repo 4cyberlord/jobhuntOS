@@ -12,3 +12,11 @@ lab5-evidence/
 node_modules/
 target/
 !.env.example
+
+# signing keys and certificates must never be committed
+*.p12
+*.pem
+*.key
+*.password
+.tauri/
+.claude/

@@ -25,4 +25,4 @@ fn open_document(app: tauri::AppHandle, file_name: String, bytes: Vec<u8>) -> Re
     app.opener().open_path(path.to_string_lossy().to_string(), None::<&str>).map_err(|e| e.to_string())
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() { tauri::Builder::default().plugin(tauri_plugin_notification::init()).plugin(tauri_plugin_opener::init()).invoke_handler(tauri::generate_handler![setup_account, verify_account, store_portal_secret, open_document]).run(tauri::generate_context!()).expect("tauri app error"); }
+pub fn run() { tauri::Builder::default().plugin(tauri_plugin_notification::init()).plugin(tauri_plugin_opener::init()).plugin(tauri_plugin_updater::Builder::new().build()).plugin(tauri_plugin_process::init()).invoke_handler(tauri::generate_handler![setup_account, verify_account, store_portal_secret, open_document]).run(tauri::generate_context!()).expect("tauri app error"); }

@@ -12,6 +12,7 @@ import { pickFiles } from "../../lib/files";
 import { useWorkspaceStatus, workspaceSyncNow } from "../../lib/workspaceSync";
 import { syncNow, useSyncConfig, useSyncStatus, writeSyncConfig } from "../../lib/gateSync";
 import { fmtAgo } from "../../lib/format";
+import { checkForUpdate, installUpdate, useUpdate } from "../../lib/updater";
 import { lockVault, vaultExists, vaultUnlocked } from "../../lib/vault";
 
 /** Local editable copy of a settings section that autosaves (debounced). */
@@ -294,11 +295,28 @@ export const Help = () => (
     <div className="set-note" style={{ marginTop: 12 }}>Support is community-run for this local build; see the project README for setup and troubleshooting.</div>
   </Simple>
 );
-export const About = () => (
-  <Simple title="About" sub="Version, updates, and legal.">
-    <div className="set-rows">
-      <Row title="Job Hunt OS" sub="Desktop app built with Tauri and React"><span>Version 0.1.0</span></Row>
-      <Row title="Updates" sub="Automatic updates are not enabled in this build."><ArrowTopRightOnSquareIcon width={18} /></Row>
-    </div>
-  </Simple>
-);
+export function About() {
+  const u = useUpdate();
+  useEffect(() => { if (u.phase === "idle") void checkForUpdate(true); }, [u.phase]);
+  const status =
+    u.phase === "unsupported" ? "Updates are available in the desktop app."
+    : u.phase === "checking" ? "Checking for updates…"
+    : u.phase === "uptodate" ? `You’re up to date${u.checkedAt ? ` · checked ${fmtAgo(u.checkedAt)}` : ""}.`
+    : u.phase === "available" ? `Version ${u.version} is ready to install.`
+    : u.phase === "downloading" ? `Downloading… ${u.progress ?? 0}%`
+    : u.phase === "ready" ? "Installed. Restarting…"
+    : u.phase === "error" ? `Couldn’t check for updates: ${u.error}`
+    : "Check GitHub for a newer version of Job Hunt OS.";
+  return (
+    <Simple title="About" sub="Version, updates, and legal.">
+      <div className="set-rows">
+        <Row title="Job Hunt OS" sub="Desktop app built with Tauri and React"><span>{u.current ? `Version ${u.current}` : ""}</span></Row>
+        <Row title="Updates" sub={status}>
+          {u.phase === "available" || u.phase === "downloading"
+            ? <button className="btn primary" disabled={u.phase === "downloading"} onClick={() => void installUpdate()}>{u.phase === "downloading" ? "Downloading…" : "Get update"}</button>
+            : <button className="btn" disabled={u.phase === "unsupported" || u.phase === "checking" || u.phase === "ready"} onClick={() => void checkForUpdate(false)}>Check for updates</button>}
+        </Row>
+      </div>
+    </Simple>
+  );
+}

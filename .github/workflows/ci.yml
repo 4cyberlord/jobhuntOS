@@ -1,0 +1,20 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - name: Type-check desktop app
+        run: npm run typecheck -w @job-hunt-os/desktop
+      - name: Build desktop UI
+        run: npm run build -w @job-hunt-os/desktop
+      - name: API type-check and tests
+        run: |
+          npm run typecheck -w @job-hunt-os/api
+          npm run test -w @job-hunt-os/api

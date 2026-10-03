@@ -10,6 +10,7 @@ import { Splash } from "./components/Splash";
 import { useGateSyncRunner } from "./lib/gateSync";
 import { useWorkspacePhase, useWorkspaceStatus, useWorkspaceSyncRunner, workspaceSyncNow } from "./lib/workspaceSync";
 import { stripSampleData } from "./lib/seed";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { LoginScreen } from "./components/LoginScreen";
 
 import Dashboard from "./pages/Dashboard";
@@ -86,6 +87,7 @@ function Boot() {
   const ready = ph.phase === "ready";
   return <>
     {ready && <Shell />}
+    {ready && <UpdateBanner />}
     {ready && st.state === "error" && <div className="sync-banner" role="status">Changes not saved yet — {st.error} Retrying…{" "}<button className="btn sm" onClick={() => void workspaceSyncNow()}>Retry now</button></div>}
     {!splashDone && <Splash ready={ready} note={ph.migrating ? "Moving your data to your server…" : "Loading your workspace…"} onDone={done} />}
   </>;

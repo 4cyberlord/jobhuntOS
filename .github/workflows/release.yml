@@ -1,0 +1,45 @@
+name: Release
+# Push a tag like v1.0.1 to build, sign, notarize and publish the app. The in-app "Get update" button reads latest.json from the release.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-apple-darwin,x86_64-apple-darwin" }
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "apps/desktop/src-tauri -> target" }
+      - run: npm ci
+      - name: Tag must match the app version
+        run: |
+          V=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          [ "v$V" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} does not match tauri.conf.json version $V"; exit 1; }
+      - run: npm run typecheck -w @job-hunt-os/desktop
+      - run: npm run test -w @job-hunt-os/api
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          args: --target universal-apple-darwin
+          tagName: ${{ github.ref_name }}
+          releaseName: Job Hunt OS ${{ github.ref_name }}
+          releaseBody: See the assets below to install. Existing installs update from Settings → About → Check for updates.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
