@@ -4,7 +4,8 @@ import { z } from "zod";
 import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUSES, normalizeIncoming, parseGatePayload, searchProfile, type LegacyGate } from "@job-hunt-os/contracts";
 import { timingSafeEqual } from "node:crypto";
 import { verifyPassword } from "./auth.js";
-import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile } from "./repository.js";
+import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
+import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile } from "./repository.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -47,6 +48,35 @@ export async function buildApp() {
     const passwordOk = verifyPassword(body.data.password, owner.passwordHash); // both checks always run
     if (!(emailOk && passwordOk)) { await recordAuthFailure(request.ip); return reply.code(401).send({ error: "incorrect email or password" }); }
     return { syncKey: await createSession(body.data.keep === false ? 1 : 90) };
+  });
+  // App updates from a private GitHub repo (see updates.ts). The token lives in the database and never leaves the server.
+  const GH = "https://api.github.com";
+  const ghHeaders = (token: string, accept = "application/vnd.github+json") => ({ Authorization: `Bearer ${token}`, Accept: accept, "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "job-hunt-os-api" });
+  app.get("/v1/desktop/update", async (request, reply) => {
+    const q = z.object({ current: z.string().max(40), target: z.string().max(20), arch: z.string().max(20) }).safeParse(request.query);
+    if (!q.success) return reply.code(422).send({ error: "invalid query" });
+    const gh = await getGithub();
+    if (!gh) return reply.code(503).send({ error: "updates are not set up on the server yet" });
+    const rel = await fetch(`${GH}/repos/${gh.repo}/releases/latest`, { headers: ghHeaders(gh.token) });
+    if (rel.status === 404) return reply.code(204).send(); // no release published yet
+    if (!rel.ok) return reply.code(502).send({ error: "could not read releases" });
+    const release = (await rel.json()) as { assets: ReleaseAsset[] };
+    const manifest = release.assets.find((a) => a.name === "latest.json");
+    if (!manifest) return reply.code(204).send();
+    const m = await fetch(`${GH}/repos/${gh.repo}/releases/assets/${manifest.id}`, { headers: ghHeaders(gh.token, "application/octet-stream"), redirect: "follow" });
+    if (!m.ok) return reply.code(502).send({ error: "could not read the update manifest" });
+    const origin = `https://${request.headers.host}`;
+    const out = updateFor({ latest: (await m.json()) as LatestJson, assets: release.assets, ...q.data, assetUrl: (id) => `${origin}/v1/desktop/update/asset/${id}` });
+    return out ?? reply.code(204).send();
+  });
+  app.get("/v1/desktop/update/asset/:id", async (request, reply) => {
+    const id = Number((request.params as { id: string }).id);
+    const gh = await getGithub();
+    if (!gh || !Number.isInteger(id) || id <= 0) return reply.code(404).send({ error: "not found" });
+    // GitHub answers with a short-lived signed link; hand that to the app so the download does not pass through this function
+    const r = await fetch(`${GH}/repos/${gh.repo}/releases/assets/${id}`, { headers: ghHeaders(gh.token, "application/octet-stream"), redirect: "manual" });
+    const to = r.headers.get("location");
+    return r.status >= 300 && r.status < 400 && to ? reply.redirect(to, 302) : reply.code(404).send({ error: "not found" });
   });
   app.delete("/v1/desktop/session", async (request) => { await endSession(bearer(request)); return { ok: true }; });
   app.get("/health", async () => ({ ok: true }));

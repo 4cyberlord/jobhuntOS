@@ -208,3 +208,7 @@ export async function sessionValid(token: string | undefined) {
   return true;
 }
 export async function endSession(token: string | undefined) { if (!token) return; const id = sha(token); seen.delete(id); await (await database()).collection<{ _id: string }>("sessions").deleteOne({ _id: id }); }
+
+/** GitHub access for update delivery: a read-only fine-grained token for the private repo, kept in the database. */
+export async function getGithub() { return (await (await database()).collection("secrets").findOne({ _id: "github" } as never)) as { token: string; repo: string } | null; }
+export async function setGithub(token: string, repo: string) { await (await database()).collection("secrets").updateOne({ _id: "github" } as never, { $set: { token, repo, updatedAt: new Date() } }, { upsert: true }); }

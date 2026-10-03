@@ -1,7 +1,8 @@
-// In-app updates. The app checks your GitHub Releases for a newer signed build; "Get update" downloads it, verifies its
+// In-app updates. The app asks your own API (signed in) for a newer build, which the API reads from your private GitHub Releases; "Get update" downloads it, verifies its
 // signature against the public key baked into this build, installs it and restarts into the new version.
 import { useSyncExternalStore } from "react";
 import { isTauri } from "./tauri";
+import { isConfigured, readSyncConfig } from "./syncConfig";
 
 export type UpdatePhase = "unsupported" | "idle" | "checking" | "uptodate" | "available" | "downloading" | "ready" | "error";
 export type UpdateState = { phase: UpdatePhase; current?: string; version?: string; notes?: string; progress?: number; error?: string; checkedAt?: number };
@@ -24,7 +25,10 @@ export async function checkForUpdate(quiet = false) {
     const { getVersion } = await import("@tauri-apps/api/app");
     const current = await getVersion();
     const { check } = await import("@tauri-apps/plugin-updater");
-    const update = (await check()) as unknown as Pending | null;
+    const cfg = readSyncConfig();
+    if (!isConfigured(cfg)) { if (!quiet) set({ phase: "error", error: "Sign in first." }); return; }
+    // the update service is your own API, so the check carries your session; the build's public key still verifies the download
+    const update = (await check({ headers: { Authorization: `Bearer ${cfg.syncKey}` } })) as unknown as Pending | null;
     if (update) { pending = update; set({ phase: "available", current, version: update.version, notes: update.body ?? undefined, checkedAt: Date.now() }); }
     else { pending = null; set({ phase: quiet && state.phase !== "checking" ? state.phase : "uptodate", current, checkedAt: Date.now() }); }
   } catch (e) {

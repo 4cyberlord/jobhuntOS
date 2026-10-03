@@ -8,7 +8,7 @@ API in `apps/api`); the desktop app keeps nothing but your sign-in on the device
 
 ## Install and update
 
-Download the latest `.dmg` from [Releases](https://github.com/4cyberlord/jobhuntOS/releases). After that the app updates itself:
+Download the latest `.dmg` from this (private) repository's Releases while signed in to GitHub. After that the app updates itself through your own API:
 **Settings → About → Check for updates → Get update**. See [docs/RELEASING.md](docs/RELEASING.md) for how releases are published.
 
 ## Sign-in and secrets
