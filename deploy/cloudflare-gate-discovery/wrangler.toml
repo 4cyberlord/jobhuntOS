@@ -1,0 +1,31 @@
+name = "gate-discovery"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["*/30 * * * *"]
+
+[[kv_namespaces]]
+binding = "GATE_STATUS"
+id = "c2958e6244394c85bb6eb47c4803bdb1"
+
+[[d1_databases]]
+binding = "GATE_JOURNAL"
+database_name = "gate-discovery-journal"
+database_id = "457e7d70-c158-444d-b2be-d8b15d80e960"
+
+[[queues.producers]]
+binding = "CANDIDATES"
+queue = "gate-discovery-candidates"
+
+[[queues.consumers]]
+queue = "gate-discovery-candidates"
+max_batch_size = 5
+max_batch_timeout = 30
+max_retries = 5
+
+[vars]
+GATE_API_URL = "https://job-hunt-os-api.vercel.app"
+WATCH_ID = "summer-2027-swe-internships"
+SEASON = "Summer 2027"
+COUNTRY = "US"
