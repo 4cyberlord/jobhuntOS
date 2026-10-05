@@ -4,7 +4,7 @@ import { BriefcaseIcon, CalendarDaysIcon, ClockIcon, GlobeAltIcon, MapPinIcon, S
 import { useData } from "../lib/store";
 import { useUI } from "../lib/ui";
 import { DAY, fmtAgo } from "../lib/format";
-import { PROVIDER_LABEL, deadlineOf, flagsFor, isOpen, levelFor, locationText } from "../lib/gate";
+import { PROVIDER_LABEL, deadlineOf, flagsFor, isOpen, locationText, similarGateOpportunities } from "../lib/gate";
 import { syncNow, useSyncConfig, useSyncStatus } from "../lib/gateSync";
 import type { GateOpportunity } from "../lib/types";
 import { Modal } from "../components/ui";
@@ -33,12 +33,12 @@ const STAGES = [
 
 export default function Gate() {
   const { data, act } = useData();
-  const { search, params, navigate, openJob, toast } = useUI();
+  const { search, setSearch, params, navigate, openJob, toast } = useUI();
   const sync = useSyncStatus();
   const cfg = useSyncConfig();
   const [tab, setTab] = useState<Tab>("all");
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [sort, setSort] = useState<Sort>("match");
+  const [sort, setSort] = useState<Sort>("newest");
   const [quick, setQuick] = useState<Set<string>>(new Set());
   const [selId, setSelId] = useState<string | undefined>(params.item);
   const [importing, setImporting] = useState(false);
@@ -46,26 +46,51 @@ export default function Gate() {
 
   useEffect(() => { if (params.item) { setTab("all"); setSelId(params.item); } }, [params.item]);
 
-  const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.id, data.gate.filter(t.match).length])) as Record<Tab, number>, [data.gate]);
-  const states = useMemo(() => [...new Set(data.gate.map((g) => g.envelope.opportunity.location.state).filter((s): s is string => !!s))].sort(), [data.gate]);
-  const providers = useMemo(() => [...new Set(data.gate.map((g) => g.envelope.source.provider))].sort(), [data.gate]);
+  const counts = useMemo(() => {
+    const safe = (fn: () => number) => { try { return fn(); } catch { return 0; } };
+    return Object.fromEntries(TABS.map((t) => [t.id, safe(() => data.gate.filter((g) => { try { return t.match(g); } catch { return t.id === "all"; } }).length)])) as Record<Tab, number>;
+  }, [data.gate]);
+  const states = useMemo(() => {
+    try { return [...new Set(data.gate.map((g) => (g.envelope as unknown as { opportunity?: { location?: { state?: unknown } } })?.opportunity?.location?.state).filter((s): s is string => typeof s === "string" && !!s))].sort(); } catch { return [] as string[]; }
+  }, [data.gate]);
+  const providers = useMemo(() => {
+    try { return [...new Set(data.gate.map((g) => (g.envelope as unknown as { source?: { provider?: unknown } })?.source?.provider).filter((p): p is string => typeof p === "string" && !!p))].sort(); } catch { return [] as string[]; }
+  }, [data.gate]);
 
   const list = useMemo(() => {
     const q = search.trim().toLowerCase();
     const tabMatch = TABS.find((t) => t.id === tab)!.match;
     const now = Date.now();
     const out = data.gate.filter((g) => {
-      if (!tabMatch(g) || !passes(g, filters, now)) return false;
-      const e = g.envelope;
-      const flags = flagsFor(g);
-      for (const f of quick) if (f === "official" ? !e.source.official : !flags.includes(f as never)) return false;
-      return !q || `${e.company.name} ${e.opportunity.title} ${locationText(e)} ${e.opportunity.track} ${e.match.matching_skills.join(" ")}`.toLowerCase().includes(q);
+      try {
+        if (!(() => { try { return tabMatch(g); } catch { return tab === "all"; } })() || !(() => { try { return passes(g, filters, now); } catch { return true; } })()) return false;
+        const e = g.envelope as unknown as Record<string, unknown>;
+        const flags = (() => { try { return flagsFor(g); } catch { return [] as string[]; } })();
+        const official = (e.source as Record<string, unknown> | undefined)?.official as boolean | undefined;
+        for (const f of quick) if (f === "official" ? !official : !flags.includes(f as never)) return false;
+        if (!q) return true;
+        const company = (e.company as Record<string, unknown> | undefined)?.name as string | undefined;
+        const opp = (e.opportunity as Record<string, unknown> | undefined);
+        const title = opp?.title as string | undefined;
+        const track = opp?.track as string | undefined;
+        const matchSkills: unknown = (e.match as Record<string, unknown> | undefined)?.matching_skills;
+        const loc = (() => { try { return locationText(g.envelope); } catch { return ""; } })();
+        const hay = `${company ?? ""} ${title ?? ""} ${loc} ${track ?? ""} ${Array.isArray(matchSkills) ? (matchSkills as string[]).join(" ") : ""}`.toLowerCase();
+        return hay.includes(q);
+      } catch {
+        return tab === "all" && !q;
+      }
     });
     const far = Number.MAX_SAFE_INTEGER;
-    return out.sort((a, b) => sort === "match" ? b.envelope.match.score - a.envelope.match.score : sort === "newest" ? b.receivedAt - a.receivedAt : (deadlineOf(a.envelope) ?? far) - (deadlineOf(b.envelope) ?? far));
+    const scoreOf = (x: GateOpportunity) => {
+      const s: unknown = (x.envelope as unknown as { match?: { score?: unknown } })?.match?.score;
+      return typeof s === "number" && Number.isFinite(s) ? s : 0;
+    };
+    return out.sort((a, b) => sort === "match" ? scoreOf(b) - scoreOf(a) : sort === "newest" ? (b.receivedAt ?? 0) - (a.receivedAt ?? 0) : ((() => { try { return deadlineOf(a.envelope) ?? far; } catch { return far; } })() - (() => { try { return deadlineOf(b.envelope) ?? far; } catch { return far; } })()));
   }, [data.gate, tab, filters, sort, quick, search]);
 
   const selected = list.find((g) => g.id === selId) ?? list[0];
+  const similar = useMemo(() => selected ? similarGateOpportunities(selected, data.gate) : [], [selected, data.gate]);
   useEffect(() => { if (selected && !selected.seen) act.markGateSeen(selected.id); }, [selected, act]);
 
   // J/K or arrow keys walk the list (ignored while typing in a field)
@@ -109,6 +134,9 @@ export default function Gate() {
   const lastUpdated = Math.max(sync.lastAt ?? 0, ...data.gate.map((g) => g.updatedAt), 0);
   const nFilters = activeCount(filters) + quick.size;
   const clearAll = () => { setFilters(NO_FILTERS); setQuick(new Set()); };
+  const selectSimilar = (id: string) => {
+    setSearch(""); setTab("all"); setFilters(NO_FILTERS); setQuick(new Set()); setSelId(id);
+  };
 
   return (
     <div className="page gate">
@@ -145,7 +173,7 @@ export default function Gate() {
         <FilterSelect icon={<BriefcaseIcon />} label="Work mode" value={filters.mode} onChange={set("mode")} options={[["any", "Any"], ["remote", "Remote"], ["hybrid", "Hybrid"], ["onsite", "Onsite"]]} />
         <FilterSelect icon={<CurrencyDollarIcon />} label="Sponsorship" value={filters.sponsor} onChange={set("sponsor")} options={[["any", "Any"], ["available", "Available"], ["not_available", "Not available"], ["unknown", "Not stated"]]} />
         <FilterSelect icon={<AcademicCapIcon />} label="CPT/OPT" value={filters.cpt} onChange={set("cpt")} options={[["any", "Any"], ["allowed", "CPT allowed"], ["not_allowed", "Not allowed"], ["unknown", "Unknown"]]} />
-        <FilterSelect icon={<SparklesIcon />} label="Match" value={filters.match} onChange={set("match")} options={[["any", "Any"], ["strong", "Strong"], ["moderate", "Moderate"], ["weak", "Weak"]]} />
+        <FilterSelect icon={<SparklesIcon />} label="Match" value={filters.match} onChange={set("match")} options={[["any", "Any"], ["perfect", "Perfect"], ["strong", "Strong"], ["good", "Good"], ["partial", "Partial"], ["low", "Low"]]} />
         <FilterSelect icon={<GlobeAltIcon />} label="Source" value={filters.source} onChange={set("source")} options={[["any", "Any"], ["official", "Official only"], ["unverified", "Unverified"], ...providers.map((p): [string, string] => [p, PROVIDER_LABEL[p] ?? p])]} />
       </div>
 
@@ -171,7 +199,7 @@ export default function Gate() {
 
         <div className="g-detail">
           {selected ? (
-            <GateDetail key={selected.id} g={selected} onApprove={() => approve(selected)} onDecide={(s) => decide(selected, s)} onOpenJob={() => openJob(selected.linkedJobId)} onKanban={() => navigate("kanban")} onCopied={() => toast("Apply link copied")} />
+            <GateDetail key={selected.id} g={selected} similar={similar} onSelectSimilar={selectSimilar} onApprove={() => approve(selected)} onDecide={(s) => decide(selected, s)} onOpenJob={() => openJob(selected.linkedJobId)} onKanban={() => navigate("kanban")} onCopied={() => toast("Apply link copied")} />
           ) : <div className="g-empty"><SparklesIcon /><b>Select an opportunity</b><p>Its match explanation and eligibility will appear here.</p></div>}
         </div>
       </div>

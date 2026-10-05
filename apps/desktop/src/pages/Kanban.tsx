@@ -6,6 +6,7 @@ import { PIPELINE, type Job, type Status } from "../lib/types";
 import { Logo } from "../components/Logo";
 import { StatusPill } from "../components/ui";
 import { cardDate, fitOf, matchesQuery, stageLabel } from "./kanban/helpers";
+import { getOutlookStatus } from "../lib/outlookSync";
 import "./kanban/kanban.css";
 
 type MenuState = { job: Job; x: number; y: number } | null;
@@ -52,6 +53,9 @@ export default function Kanban() {
   const [menu, setMenu] = useState<MenuState>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<Status | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [outlookConnected, setOutlookConnected] = useState(false);
+  useEffect(() => { void getOutlookStatus().then((s) => setOutlookConnected(s.connected)).catch(() => setOutlookConnected(false)); }, []);
 
   const pipeline = useMemo(() => new Set<Status>(PIPELINE.map((p) => p.status)), []);
   const pool = useMemo(() => data.jobs.filter((j) => pipeline.has(j.status)), [data.jobs, pipeline]);
@@ -102,6 +106,18 @@ export default function Kanban() {
           <button className={`icon-btn ${view === "list" ? "on" : ""}`} onClick={() => setView((v) => (v === "board" ? "list" : "board"))} aria-label={view === "board" ? "Switch to list view" : "Switch to board view"} title={view === "board" ? "List view" : "Board view"}>{view === "board" ? <ListBulletIcon /> : <ViewColumnsIcon />}</button>
         </div>
         <button className="btn primary kb-add" onClick={() => openModal({ kind: "job" })}><PlusIcon /> Add Job</button>
+        <button className="btn kb-add" disabled={!outlookConnected || syncing} title={outlookConnected ? "Sync Outlook email → Kanban/Calendar" : "Connect Outlook in Settings → Integrations"} onClick={async () => {
+          setSyncing(true);
+          try {
+            const r = await act.syncOutlookEmails();
+            const moved = r.moved.length ? `${r.moved.length} moved` : "nothing to move";
+            const cal = r.calendarCreated ? `, ${r.calendarCreated} calendar` : "";
+            const confirm = r.needsConfirm ? `, ${r.needsConfirm} need review` : "";
+            const t = (window as unknown as { __jhosToast?: (m: string) => void }).__jhosToast;
+            if (t) t(`Email sync: ${r.processed} processed — ${moved}${cal}${confirm}${r.errors[0] ? ` — ${r.errors[0]}` : ""}`);
+            if (r.errors[0] && t) t(r.errors[0]);
+          } catch (e) { const t = (window as unknown as { __jhosToast?: (m: string) => void }).__jhosToast; t?.(e instanceof Error ? e.message : String(e)); } finally { setSyncing(false); }
+        }}>{syncing ? "Syncing…" : "Sync email"}</button>
       </div>
 
       {view === "board" ? (

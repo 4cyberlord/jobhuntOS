@@ -39,7 +39,11 @@
 .docs-folders { display: flex; flex-direction: column; min-height: 0; padding: 14px 12px; overflow: hidden; }
 .docs-folders header { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 10px 6px; }
 .docs-folders h2 { font-size: calc(16px * var(--fs, 1)); font-weight: 650; }
-.docs-folders header .icon-btn { width: 30px; height: 30px; }
+.docs-folders header .icon-btn { width: 30px; height: 30px; background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--text); box-shadow: var(--shadow-sm); }
+.docs-folders header .icon-btn:hover { background: var(--panel); border-color: var(--blue-line); color: var(--blue); }
+.docs-folders header .icon-btn svg { stroke-width: 2.2; }
+:root[data-theme="dark"] .docs-folders header .icon-btn { background: var(--panel-2); border-color: var(--line-strong); color: var(--text); }
+:root[data-theme="dark"] .docs-folders header .icon-btn:hover { background: color-mix(in srgb, var(--panel-2) 85%, var(--blue-soft)); border-color: var(--blue-line); color: var(--blue); }
 .docs-folder-list { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
 .docs-folder { display: flex; align-items: center; gap: 9px; height: 42px; flex: none; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font-size: calc(13.5px * var(--fs, 1)); text-align: left; }
 .docs-folder svg { width: 22px; height: 22px; stroke-width: 1.6; flex: none; }
@@ -115,7 +119,7 @@
 .docs-aside { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
 .docs-aside-top { display: flex; justify-content: flex-end; gap: 8px; flex: none; }
 .docs-aside-top .icon-btn { width: 34px; height: 34px; }
-.docs-aside-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px; }
+.docs-aside-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; overflow-anchor: none; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px; }
 .docs-aside-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; color: var(--muted); background: var(--panel); border: 1px dashed var(--line-strong); border-radius: 16px; padding: 24px; }
 .docs-aside-empty svg { width: 42px; height: 42px; stroke-width: 1.3; color: var(--faint); }
 .docs-aside-empty b { color: var(--text); }
@@ -200,7 +204,10 @@
 .docs-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 10px; border-radius: 999px; font-size: calc(11.5px * var(--fs, 1)); font-weight: 550; background: var(--blue-soft); color: var(--blue); }
 .docs-tag.purple { background: var(--purple-soft); color: var(--purple); } .docs-tag.teal { background: var(--teal-soft); color: var(--teal); } .docs-tag.amber { background: var(--amber-soft); color: var(--amber); }
 .docs-tag button { display: none; border: 0; background: none; padding: 0; color: inherit; width: 12px; height: 12px; } .docs-tag:hover button { display: block; } .docs-tag button svg { width: 12px; height: 12px; stroke-width: 2.4; }
-.docs-tag-add { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); color: var(--muted); display: grid; place-items: center; padding: 0; }
+.docs-tag-add { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text-2); display: grid; place-items: center; padding: 0; box-shadow: var(--shadow-sm); }
+.docs-tag-add:hover { background: var(--panel); border-color: var(--blue-line); color: var(--blue); }
+:root[data-theme="dark"] .docs-tag-add { background: var(--panel-2); border-color: var(--line-strong); color: var(--text); }
+:root[data-theme="dark"] .docs-tag-add:hover { background: color-mix(in srgb, var(--panel-2) 88%, var(--blue-soft)); border-color: var(--blue-line); color: var(--blue); }
 .docs-tag-add svg { width: 13px; height: 13px; stroke-width: 2.2; }
 .docs-tag-in { width: 100px; padding: 3px 9px; font-size: calc(12px * var(--fs, 1)); border-radius: 999px; }
 .docs-linkrow { justify-content: space-between; display: flex; align-items: center; gap: 8px; }

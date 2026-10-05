@@ -30,7 +30,7 @@ export function Header() {
   const { route, navigate, back, forward, search, setSearch, openJob } = useUI();
   const { data } = useData();
   const [focus, setFocus] = useState(false);
-  const unread = data.notifications.some((n) => !n.read);
+  const unreadInbox = data.inbox.filter((message) => !message.read).length;
   const results = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q || SCOPED.has(route)) return [];
@@ -43,6 +43,7 @@ export function Header() {
     return out;
   }, [search, route, data, navigate, openJob]);
   const name = data.settings.profile.name;
+  const avatar = data.settings.profile.avatar;
   return (
     <header className="topbar" data-tauri-drag-region>
       <div className="topbar-left">
@@ -67,11 +68,11 @@ export function Header() {
         )}
       </div>
       <div className="topbar-right">
-        <button className="icon-btn ghost bell" onClick={() => navigate("notifications")} aria-label="Notifications">
+        <button className="icon-btn ghost bell" onClick={() => navigate("inbox")} aria-label={unreadInbox ? `Agent Inbox, ${unreadInbox} unread` : "Agent Inbox"}>
           <BellIcon />
-          {unread && <i />}
+          {unreadInbox > 0 && <i>{unreadInbox > 99 ? "99+" : unreadInbox}</i>}
         </button>
-        <button className="avatar" onClick={() => navigate("settings")} aria-label="Account" title={name}>{initials(name)}</button>
+        <button className={`avatar ${avatar ? "has-photo" : ""}`} onClick={() => navigate("settings")} aria-label="Account" title={name}>{avatar ? <img src={avatar} alt="" /> : initials(name)}</button>
       </div>
     </header>
   );

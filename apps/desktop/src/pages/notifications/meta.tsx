@@ -8,6 +8,7 @@ export type Filter = "all" | "unread" | "followups" | "interviews" | "deadlines"
 export const FILTER_OF: Record<NotifKind, Exclude<Filter, "all" | "unread">> = {
   interview: "interviews", deadline: "deadlines", followup: "followups", reminder: "followups", stale: "followups",
   match: "agent", recruiter: "agent", document: "system", weekly: "system",
+  assessment: "agent", email_sync: "system",
 };
 export const NOTIFY_KEY: Record<Exclude<Filter, "all" | "unread">, keyof Settings["notify"]> = {
   interviews: "interviews", deadlines: "deadlines", followups: "followups", agent: "agent", system: "system",
@@ -23,6 +24,8 @@ export const KIND: Record<NotifKind, { icon: Icon; tone: string; tag: string }> 
   stale: { icon: BellSnoozeIcon, tone: "gray", tag: "Stale Application" },
   reminder: { icon: DocumentTextIcon, tone: "blue", tag: "Reminder" },
   weekly: { icon: ChartBarIcon, tone: "purple", tag: "Weekly Review" },
+  assessment: { icon: ClipboardDocumentListIcon, tone: "amber", tag: "Assessment" },
+  email_sync: { icon: EnvelopeOpenIcon, tone: "green", tag: "Email Sync" },
 };
 
 export const chipTone = (chip: string): string => {

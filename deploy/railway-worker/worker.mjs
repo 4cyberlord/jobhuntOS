@@ -1,26 +1,50 @@
-// Railway worker: posts each opportunity in BACKFILL_JSON to the GATE relay, one request each.
-// Service variables: RELAY_URL, GATE_INGEST_TOKEN (same value as on the Vercel relay), BACKFILL_JSON.
-// The relay saves the record to the backend first, then notifies Telegram, so a rate limit can no longer lose a job.
-// Set the service start command to:  node worker.mjs   (or paste this file's contents as the inline script)
-const jobs = JSON.parse(process.env.BACKFILL_JSON ?? "[]");
-const url = process.env.RELAY_URL;
-const token = process.env.GATE_INGEST_TOKEN;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+import pg from "pg";
+import { claimOne, classifyApiResponse, markFailure, markStored } from "./queue.mjs";
 
-if (!url || !token) { console.error("RELAY_URL and GATE_INGEST_TOKEN are required"); process.exit(2); }
-console.log(`START total=${jobs.length}`);
-let sent = 0, failed = 0;
-for (const [i, job] of jobs.entries()) {
-  const label = `${i + 1}/${jobs.length} ${job.company?.name} - ${job.opportunity?.title}`;
+const { Pool, Client } = pg;
+const required = ["DATABASE_URL", "GATE_API_URL", "AGENT_API_KEY"];
+const missing = required.filter((key) => !process.env[key]);
+if (missing.length) throw new Error(`Missing required configuration: ${missing.join(", ")}`);
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 4, ssl: process.env.PGSSLMODE === "disable" ? false : undefined });
+const apiUrl = `${process.env.GATE_API_URL.replace(/\/+$/, "")}/v1/agent/gate/opportunities`;
+let draining = false;
+let stopping = false;
+
+async function submit(row) {
+  let response;
   try {
-    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(job), signal: AbortSignal.timeout(30000) });
-    const body = await res.text();
-    // HTTP 200 is not enough: the relay also answers 200 when it could alert Telegram but NOT save the job (success:false / degraded).
-    let saved = res.ok;
-    try { const b = JSON.parse(body); if (b.success === false || b.degraded) saved = false; } catch { /* non-JSON body: trust the status */ }
-    if (saved) { sent++; console.log(`OK ${label} :: ${body}`); } else { failed++; console.error(`FAILED (not saved) ${label} HTTP ${res.status} :: ${body}`); }
-  } catch (e) { failed++; console.error(`FAILED ${label} :: ${e.message}`); }
-  await sleep(1500); // the relay queues and retries Telegram rate limits itself
+    response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${process.env.AGENT_API_KEY}` },
+      body: JSON.stringify(row.gate_record), signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error) { return { kind: "retry", error: error instanceof Error ? error.message : "Network failure" }; }
+  let body;
+  try { body = await response.json(); } catch { body = { error: "GATE API returned invalid JSON" }; }
+  return classifyApiResponse(response.status, body);
 }
-console.log(`SUMMARY sent=${sent} failed=${failed} total=${jobs.length}`);
-process.exit(failed ? 1 : 0);
+async function drain() {
+  if (draining || stopping) return;
+  draining = true;
+  try {
+    for (;;) {
+      const row = await claimOne(pool);
+      if (!row) return;
+      const outcome = await submit(row);
+      if (outcome.kind === "stored") { await markStored(pool, row, outcome.gateOpportunityId); console.log(`stored queue_id=${row.id} fingerprint=${row.fingerprint}`); }
+      else { await markFailure(pool, row, outcome); console.warn(`${outcome.kind} queue_id=${row.id} fingerprint=${row.fingerprint}`); }
+    }
+  } finally { draining = false; }
+}
+const listener = new Client({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSLMODE === "disable" ? false : undefined });
+await listener.connect();
+await listener.query("LISTEN gate_opportunity_discovered");
+listener.on("notification", () => { void drain().catch((error) => console.error("queue drain failed", error.message)); });
+listener.on("error", (error) => console.error("queue listener error", error.message));
+const scan = setInterval(() => { void drain().catch((error) => console.error("queue scan failed", error.message)); }, 60_000);
+await drain();
+console.log("GATE queue worker ready");
+async function shutdown(signal) { stopping = true; clearInterval(scan); console.log(`received ${signal}; shutting down`); await listener.end().catch(() => undefined); await pool.end().catch(() => undefined); process.exit(0); }
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
+process.once("SIGINT", () => void shutdown("SIGINT"));

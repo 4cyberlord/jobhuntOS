@@ -22,6 +22,7 @@ npm run test -w @job-hunt-os/api
 TARGET=()
 [ "${UNIVERSAL:-1}" = "1" ] && TARGET=(--target universal-apple-darwin)
 echo "→ build, sign, notarize (notarization waits on Apple and can take several minutes)"
+UNIVERSAL="${UNIVERSAL:-1}" npm --workspace @job-hunt-os/desktop run prepare-tectonic
 npm --workspace @job-hunt-os/desktop exec tauri build -- ${TARGET[@]+"${TARGET[@]}"}
 
 OUT="apps/desktop/src-tauri/target/${TARGET:+universal-apple-darwin/}release/bundle"

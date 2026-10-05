@@ -49,7 +49,7 @@ function Body({ job }: { job: Job }) {
             <StatusPill status={job.status} />
           </div>
         </div>
-        <div className="insp-meta"><span>{job.location}</span><span>{job.workMode}</span><span>{job.pay}</span><span>Added {fmtShort(job.addedAt)}</span></div>
+        <div className="insp-meta"><span>{job.location || "—"}</span><span>{job.workMode || "—"}</span><span>{job.pay || "—"}</span><span>Added {(() => { try { return fmtShort(job.addedAt); } catch { return "—"; } })()}</span></div>
         <div className="tabs">{TABS.map((t) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}</div>
         {tab === "Overview" && <Overview job={job} />}
         {tab === "Notes" && <Notes job={job} />}
@@ -87,11 +87,11 @@ function Overview({ job }: { job: Job }) {
       </section>
       {job.gate ? (
         <>
-          <h4 className="gate-heading">GATE assessment <small>discovered by {job.gate.envelope.agent.name}</small></h4>
-          <GateAssessment compact env={job.gate.envelope} flags={deriveFlags(job.gate.envelope, Date.parse(job.gate.envelope.metadata.discovered_at))} />
+          <h4 className="gate-heading">GATE assessment <small>discovered by {(job.gate.envelope as unknown as { agent?: { name?: unknown } })?.agent?.name ? String((job.gate.envelope as unknown as { agent: { name: string } }).agent.name) : "GATE Scout"}</small></h4>
+          <GateAssessment compact env={job.gate.envelope} flags={(() => { try { const ts = Date.parse((job.gate!.envelope as unknown as { metadata?: { discovered_at?: unknown } })?.metadata?.discovered_at as string); return deriveFlags(job.gate!.envelope, Number.isNaN(ts) ? Date.now() : ts); } catch { return []; } })()} />
         </>
       ) : (
-        <section><h4>Match</h4><div className="score"><b>{job.score}%</b><span>Strong technical and graduation alignment</span></div></section>
+        <section><h4>Match</h4><div className="score"><b>{typeof job.score === "number" && Number.isFinite(job.score) ? Math.round(job.score) : 0}%</b><span>Strong technical and graduation alignment</span></div></section>
       )}
       <div className="insp-actions">
         {job.status === "pending_review" && <button className="btn primary" onClick={() => act.moveJob(job.id, "saved")}>Approve to pipeline</button>}
@@ -151,7 +151,7 @@ function Portal({ job }: { job: Job }) {
     <div className="insp-section">
       <p className="muted">Portal accounts you used to apply for this role. Passwords stay encrypted in your vault.</p>
       <div className="insp-actions">
-        <button className="btn primary" onClick={() => openModal({ kind: "credential", preset: { portal: `${job.company} Careers`, company: job.company, domain: job.url.replace(/^https?:\/\//, "").split("/")[0], jobIds: [job.id] } })}><KeyIcon />Store credential</button>
+        <button className="btn primary" onClick={() => openModal({ kind: "credential", preset: { portal: `${job.company} Careers`, company: job.company, domain: (typeof job.url === "string" ? job.url : "").replace(/^https?:\/\//, "").split("/")[0] ?? "", jobIds: [job.id] } })}><KeyIcon />Store credential</button>
         {others.length > 0 && <select value="" onChange={(e) => e.target.value && setLink(e.target.value, true)}><option value="">Link existing portal…</option>{others.map((c) => <option key={c.id} value={c.id}>{c.portal}</option>)}</select>}
       </div>
       {linked.length === 0 ? <div className="empty-tab">No portal credentials linked to this application.</div> : linked.map((c) => (
@@ -186,11 +186,13 @@ function Contacts({ job }: { job: Job }) {
 function Timeline({ job }: { job: Job }) {
   const { data } = useData();
   const events = data.events.filter((e) => e.jobId === job.id).sort((a, b) => a.start - b.start);
+  const safeDate = (n: number) => { try { return fmtDate(n); } catch { return "—"; } };
+  const safeTime = (n: number) => { try { return fmtTime(n); } catch { return ""; } };
   return (
     <div className="insp-section timeline">
-      <div><b>Opportunity {job.source === "agent" ? "discovered by your agent" : "added"}</b><span>{fmtDate(job.addedAt)}</span></div>
-      {events.map((e) => <div key={e.id}><b>{e.title}</b><span>{fmtDate(e.start)} · {fmtTime(e.start)}</span></div>)}
-      <div><b>Current stage: {job.status.replace("_", " ")}</b><span>{job.dueLabel ?? ""}</span></div>
+      <div><b>Opportunity {job.source === "agent" ? "discovered by your agent" : "added"}</b><span>{safeDate(job.addedAt)}</span></div>
+      {events.map((e) => <div key={e.id}><b>{e.title}</b><span>{safeDate(e.start)} · {safeTime(e.start)}</span></div>)}
+      <div><b>Current stage: {String(job.status ?? "saved").replace("_", " ")}</b><span>{job.dueLabel ?? ""}</span></div>
     </div>
   );
 }

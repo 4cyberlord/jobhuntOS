@@ -11,7 +11,7 @@ export function previewKind(d: DocItem): PreviewKind {
   if (e === "pdf") return "pdf";
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(e)) return "image";
   if (e === "docx") return "docx";
-  if (["txt", "md", "markdown", "csv", "json", "log"].includes(e)) return "text";
+  if (["txt", "tex", "md", "markdown", "csv", "json", "log"].includes(e)) return "text";
   return "other";
 }
 export const typeLabel = (ext: string) => {

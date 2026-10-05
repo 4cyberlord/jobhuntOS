@@ -7,13 +7,14 @@ import { useData } from "../../lib/store";
 import { useUI } from "../../lib/ui";
 import type { Settings } from "../../lib/types";
 import { Field, Progress, Toggle } from "../../components/ui";
-import { isTauri, saveBlob } from "../../lib/tauri";
+import { isTauri, openExternal, saveBlob } from "../../lib/tauri";
 import { pickFiles } from "../../lib/files";
 import { useWorkspaceStatus, workspaceSyncNow } from "../../lib/workspaceSync";
 import { syncNow, useSyncConfig, useSyncStatus, writeSyncConfig } from "../../lib/gateSync";
 import { fmtAgo } from "../../lib/format";
 import { checkForUpdate, installUpdate, useUpdate } from "../../lib/updater";
 import { lockVault, vaultExists, vaultUnlocked } from "../../lib/vault";
+import { beginOutlookConnect, disconnectOutlook, getOutlookStatus, type OutlookConnection } from "../../lib/outlookSync";
 
 /** Local editable copy of a settings section that autosaves (debounced). */
 function useDraft<K extends "profile" | "prefs">(section: K) {
@@ -230,11 +231,52 @@ function GateConnection() {
 }
 
 export function Integrations() {
+  const { data, act } = useData();
+  const { toast } = useUI();
+  const [outlook, setOutlook] = useState<OutlookConnection | null>(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => { try { setOutlook(await getOutlookStatus()); } catch (e) { toast(e instanceof Error ? e.message : "Could not read Outlook status", "warn"); } };
+  useEffect(() => { void refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const connected = !!outlook?.connected;
+  const outlookEmail = outlook?.email ?? data.settings.profile.email ?? "";
+  const lastSync = outlook?.lastSyncAt ? fmtAgo(Date.parse(outlook.lastSyncAt)) : "never";
+  const lastErr = outlook?.lastSyncError;
+  const disconnect = async () => { setBusy(true); try { await disconnectOutlook(); setOutlook(await getOutlookStatus()); toast("Outlook disconnected"); } catch (e) { toast(e instanceof Error ? e.message : String(e), "warn"); } finally { setBusy(false); } };
+  const startConnect = async () => {
+    setBusy(true);
+    try { await openExternal(await beginOutlookConnect()); toast("Complete Microsoft sign-in in your browser, then reopen Integrations to refresh status."); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e), "warn"); } finally { setBusy(false); }
+  };
+  const syncNowOutlook = async () => {
+    setBusy(true);
+    try {
+      const r = await act.syncOutlookEmails();
+      toast(r.processed ? `Email sync: ${r.processed} processed, ${r.moved.length} moved${r.calendarCreated ? `, ${r.calendarCreated} calendar` : ""}${r.needsConfirm ? `, ${r.needsConfirm} need review` : ""}` : r.errors[0] ? `Sync error: ${r.errors[0]}` : "Email sync: nothing new");
+      if (r.errors[0]) toast(r.errors[0], "warn");
+    } catch (e) { toast(e instanceof Error ? e.message : String(e), "warn"); } finally { setBusy(false); void refresh(); }
+  };
   const items: [string, string][] = [["LinkedIn", "Import connections and jobs"], ["Google Calendar", "Sync interviews and deadlines"], ["Gmail", "Track recruiter replies"], ["Notion", "Export notes and boards"]];
   return (
-    <Card title="Integrations" sub="Connect LinkedIn, Google, calendar, and more.">
-      <div className="set-int">{items.map(([n, d]) => <div key={n}><span className="set-tile blue"><LinkIcon /></span><span className="tx"><b>{n}</b><small>{d}</small></span><Soon /></div>)}</div>
-    </Card>
+    <>
+      <Card title="Outlook Email Sync" sub="Connect your Outlook / Microsoft 365 mailbox once. Application confirmations, assessments, interviews, rejections, and offers update your pipeline with a visible audit trail.">
+        <div className="set-rows">
+          <Row title="Outlook / Microsoft 365" sub={connected ? `Connected${outlookEmail ? ` as ${outlookEmail}` : ""} · last sync ${lastSync}${outlook?.pending ? ` · ${outlook.pending} email${outlook.pending === 1 ? "" : "s"} waiting` : ""}` : outlook?.configured === false ? "Outlook needs to be configured on your Job Hunt OS server." : "Not connected — sign in with Microsoft to connect your mailbox."}>
+            <span className={connected ? "set-soon" : ""} style={connected ? { color: "var(--green)", fontWeight: 600 } : undefined}>{connected ? "Connected" : "Not connected"}</span>
+          </Row>
+          {lastErr && <div className="set-note" style={{ color: "var(--red)" }}>Last error: {lastErr}</div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <button className="btn" onClick={() => void refresh()} disabled={busy}>Refresh status</button>
+            {!connected ? <button className="btn primary" onClick={startConnect} disabled={busy || outlook?.configured === false}>{busy ? "Opening Microsoft…" : "Connect Outlook"}</button> : <button className="btn" onClick={startConnect} disabled={busy}>Reconnect Outlook</button>}
+            <button className="btn primary" onClick={syncNowOutlook} disabled={busy || !connected}>Sync email now</button>
+            {connected && <button className="btn danger" onClick={() => void disconnect()} disabled={busy}>Disconnect</button>}
+          </div>
+          <p className="muted" style={{ marginTop: 10 }}>Privacy: read-only Inbox access. Microsoft tokens are encrypted on your Job Hunt OS server and never stored in this app. No email is sent and raw message bodies are not retained. Low-confidence matches create a notification for your review instead of moving Kanban.</p>
+        </div>
+      </Card>
+      <Card title="Integrations" sub="Connect LinkedIn, Google, calendar, and more.">
+        <div className="set-int">{items.map(([n, d]) => <div key={n}><span className="set-tile blue"><LinkIcon /></span><span className="tx"><b>{n}</b><small>{d}</small></span><Soon /></div>)}</div>
+      </Card>
+    </>
   );
 }
 

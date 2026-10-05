@@ -20,25 +20,38 @@ export function classifyIncoming(existing: { gate_status: GateStatus } | null, i
   return { action: "insert", gate_status: requested === "expired" ? "expired" : "discovered" };
 }
 
-/** Only these facts may change on an existing item (dotted paths into the stored envelope). */
+/** Refresh facts on an existing item without touching its server-owned fingerprint or user-controlled GATE status.
+ * Optional GATE 2.x layers are updated only when the watcher supplies them, so a slim later sighting cannot erase a
+ * previously captured posting snapshot or assessment. */
 export function mutableUpdate(incoming: GateEnvelope, now = new Date()): Record<string, unknown> {
   const e = incoming;
   return {
+    "envelope.schema_version": e.schema_version,
+    "envelope.search": e.search,
+    "envelope.company": e.company,
+    "envelope.opportunity": e.opportunity,
+    "envelope.match": e.match,
+    "envelope.agent": e.agent,
     "envelope.source": e.source,
-    "envelope.opportunity.application.status": e.opportunity.application.status,
-    "envelope.opportunity.application.deadline": e.opportunity.application.deadline ?? null,
-    "envelope.opportunity.description_summary": e.opportunity.description_summary,
     "envelope.eligibility": e.eligibility,
     "envelope.compensation": e.compensation ?? null,
+    ...(e.identity ? { "envelope.identity": e.identity } : {}),
+    ...(e.original_posting ? { "envelope.original_posting": e.original_posting } : {}),
+    ...(e.posting_versions ? { "envelope.posting_versions": e.posting_versions } : {}),
+    ...(e.structured_facts ? { "envelope.structured_facts": e.structured_facts } : {}),
+    ...(e.gate_assessment ? { "envelope.gate_assessment": e.gate_assessment } : {}),
+    ...(e.risk ? { "envelope.risk": e.risk } : {}),
+    ...(e.change_history ? { "envelope.change_history": e.change_history } : {}),
     updatedAt: now,
   };
 }
 
-/** Notification wording for strong matches, or null. */
+/** Notification wording for high-priority matches, or null. Lower scores remain in GATE without creating noise. */
 export function notificationFor(item: GateEnvelope, flags: string[]): { title: string; body: string; urgency: "high" | "normal" } | null {
   if (item.match.score < 85) return null;
   const tags = [flags.includes("cpt_confirmed") ? "CPT confirmed" : "", flags.includes("deadline_soon") ? "deadline soon" : ""].filter(Boolean);
-  return { title: `Strong match: ${item.company.name}`, body: `${item.opportunity.title} (${Math.round(item.match.score)}%)${tags.length ? ` - ${tags.join(", ")}` : ""}`, urgency: flags.includes("deadline_soon") ? "high" : "normal" };
+  const title = item.match.perfect_fit ? `Perfect match: ${item.company.name}` : `Strong match: ${item.company.name}`;
+  return { title, body: `${item.opportunity.title} (${Math.round(item.match.score)}%)${tags.length ? ` - ${tags.join(", ")}` : ""}`, urgency: item.match.perfect_fit || flags.includes("deadline_soon") ? "high" : "normal" };
 }
 
 /* ───────── delivery outbox (Telegram today; other channels reuse the same lifecycle) ───────── */

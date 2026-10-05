@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "echo desktop-ui-tests-pending",
+    "prepare-tectonic": "bash ../../scripts/fetch-tectonic-macos.sh",
+    "test": "vitest run",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {

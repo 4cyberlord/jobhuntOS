@@ -5,6 +5,7 @@ export type Status =
   | "saved"
   | "preparing"
   | "applied"
+  | "assessment"
   | "interviewing"
   | "offer"
   | "rejected"
@@ -14,9 +15,13 @@ export const PIPELINE: { status: Status; name: string }[] = [
   { status: "saved", name: "Saved" },
   { status: "preparing", name: "Preparing" },
   { status: "applied", name: "Applied" },
+  { status: "assessment", name: "Assessment" },
   { status: "interviewing", name: "Interviewing" },
   { status: "offer", name: "Offer" },
+  { status: "rejected", name: "Rejected" },
 ];
+
+export type AssessmentKind = "oa" | "take_home" | "live_coding" | "hirevue" | "other";
 
 export type Job = {
   id: string;
@@ -39,6 +44,10 @@ export type Job = {
   /** Snapshot of the GATE discovery this job came from (match, eligibility, source, agent are never discarded). */
   gate?: { opportunityId: string; envelope: GateEnvelope };
   eligibility: { f1: string; cpt: string; citizen: boolean; usPerson: boolean; sponsorship: string };
+  /** Tech hiring: set when the job is in the Assessment column (OA / take-home etc.) */
+  assessmentKind?: AssessmentKind;
+  /** Provenance for email-driven moves (internetMessageId). Never shown raw, used for dedupe. */
+  lastEmailId?: string;
 };
 
 export type Company = {
@@ -141,7 +150,7 @@ export type Task = {
   jobId?: string;
 };
 
-export type NotifKind = "interview" | "deadline" | "match" | "recruiter" | "followup" | "document" | "stale" | "reminder" | "weekly";
+export type NotifKind = "interview" | "deadline" | "match" | "recruiter" | "followup" | "document" | "stale" | "reminder" | "weekly" | "assessment" | "email_sync";
 export type AppNotification = {
   id: string;
   kind: NotifKind;
@@ -183,6 +192,17 @@ export type Settings = {
   agent: { active: boolean };
   /** notification id -> wake-up time (ms) for snoozed notifications */
   snoozed?: Record<string, number>;
+  /** Local audit/deduplication state for the server-managed Outlook connection. */
+  outlook?: {
+    enabled: boolean;
+    userEmail?: string;
+    /** Legacy local cursor retained for migration compatibility; the server owns the Graph cursor. */
+    deltaLink?: string;
+    lastSyncAt?: number;
+    lastSyncError?: string;
+    /** Set of already-processed internetMessageIds for idempotency (bounded, last 2000). */
+    processedIds?: string[];
+  };
 };
 
 /** A discovered opportunity in the GATE Inbox. `gateStatus` is the inbox lifecycle, NOT the application stage. */

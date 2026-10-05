@@ -18,9 +18,9 @@ export function writeSyncConfig(c: SyncConfig) {
   subs.forEach((f) => f());
 }
 // the cursor lives in memory only: the workspace already holds every GATE item, so a fresh start just re-checks (ingest dedupes)
-let cursor = "1970-01-01T00:00:00.000Z";
+let cursor = { since: "1970-01-01T00:00:00.000Z", afterId: "" };
 const readCursor = () => cursor;
-const writeCursor = (v: string) => { cursor = v; };
+const writeCursor = (since: string, afterId = "") => { cursor = { since, afterId }; };
 const configured = (c: SyncConfig) => /^https?:\/\//.test(c.apiUrl) && c.syncKey.length > 0;
 export const useSyncStatus = () => useSyncExternalStore((cb) => { subs.add(cb); return () => subs.delete(cb); }, () => status);
 export const useSyncConfig = () => { const [c, setC] = useState(readSyncConfig); useEffect(() => { const f = () => setC(readSyncConfig()); subs.add(f); return () => { subs.delete(f); }; }, []); return c; };
@@ -47,12 +47,12 @@ export function useGateSyncRunner() {
     try {
       // Cursor sync: ask for everything changed since the last item we processed. Unlike the server's one-shot "delivered"
       // flag this survives a failed parse or a crash mid-pull, and a fresh install simply starts from the beginning.
-      let since = readCursor();
+      let { since, afterId } = readCursor();
       let created = 0, skipped = 0, reason = "";
       for (let page = 0; page < 20; page++) {
-        const res = await fetch(`${base(c)}/v1/desktop/gate/opportunities?since=${encodeURIComponent(since)}`, { headers: headers(c) });
+        const res = await fetch(`${base(c)}/v1/desktop/gate/opportunities?since=${encodeURIComponent(since)}${afterId ? `&after_id=${encodeURIComponent(afterId)}` : ""}`, { headers: headers(c) });
         if (!res.ok) throw new Error(res.status === 401 ? "The sync key was rejected (401)." : `Server returned ${res.status}.`);
-        const body = (await res.json()) as { items?: { gate_opportunity_id: string; gate_status?: string; updated_at?: string; envelope: unknown }[] };
+        const body = (await res.json()) as { more?: boolean; next_since?: string; next_id?: string; items?: { gate_opportunity_id: string; gate_status?: string; updated_at?: string; envelope: unknown }[] };
         const batch = body.items ?? [];
         const items = batch.flatMap((i) => {
           const p = gateEnvelopeSchema.safeParse(i.envelope);
@@ -63,11 +63,11 @@ export function useGateSyncRunner() {
         // decisions made elsewhere (another device, Telegram) flow back; an item you already decided here is never changed
         act.applyServerDecisions(batch.filter((i) => ["approved", "dismissed", "saved_for_later", "expired"].includes(i.gate_status ?? "")).map((i) => ({ remoteId: i.gate_opportunity_id, status: i.gate_status as GateStatus })));
         const last = batch.at(-1)?.updated_at;
-        // step back 1ms so items sharing the boundary timestamp are never skipped (re-seeing one is harmless: ingest dedupes)
-        if (last) since = new Date(Date.parse(last) - 1).toISOString();
-        if (batch.length < 100) break;
+        if (body.next_since) { since = body.next_since; afterId = body.next_id ?? ""; }
+        else if (last) { since = new Date(Date.parse(last) - 1).toISOString(); afterId = ""; } // older API compatibility
+        if (!body.more) break;
       }
-      writeCursor(since);
+      writeCursor(since, afterId);
       if (skipped) throw new Error(`${skipped} item${skipped === 1 ? "" : "s"} could not be read (${reason}).`);
       setStatus({ state: "idle", lastAt: Date.now(), lastCount: created });
     } catch (e) {
