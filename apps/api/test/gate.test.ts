@@ -31,6 +31,12 @@ describe("gate payload parsing", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.items[0].eligibility.work_authorization_note).toBeNull();
   });
+  it("preserves a source-derived requirement sentence in a skill fact", () => {
+    const sourceDerived = clone(); sourceDerived.structured_facts = { required_skills: [{ skill: "R".repeat(400), provenance: "stated" }] };
+    const r = parseGatePayload(sourceDerived);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.items[0].structured_facts?.required_skills[0].skill).toHaveLength(400);
+  });
   it("expands batches with shared search", () => {
     const { event, schema_version, search, ...rest } = clone(); const batch = { search, results: [rest, { ...rest, opportunity: { ...rest.opportunity, external_id: "other-1" } }] };
     expect(gateBatchSchema.safeParse(batch).success).toBe(true);

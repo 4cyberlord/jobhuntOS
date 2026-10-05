@@ -161,7 +161,9 @@ const metadata = z.object({
 const provenance = z.enum(["stated", "inferred", "unknown"]);
 const evidence = z.object({ provenance: provenance.optional(), confidence: z.number().min(0).max(1).optional(), evidence: text(5000).nullish() }).passthrough();
 const responsibility = evidence.extend({ value: text(5000) }).passthrough();
-const skillFact = evidence.extend({ skill: text(200) }).passthrough();
+// Some official postings express a requirement as a full sentence. Preserve it
+// as source-derived evidence instead of rejecting the entire opportunity.
+const skillFact = evidence.extend({ skill: text(5000) }).passthrough();
 
 export const originalPostingSchema = z.object({
   canonical_url: url,
