@@ -25,7 +25,7 @@ max_batch_timeout = 30
 max_retries = 5
 
 [vars]
-GATE_API_URL = "https://job-hunt-os-api.vercel.app"
+GATE_API_URL = "https://gate-delivery-v3.up.railway.app"
 WATCH_ID = "summer-2027-swe-internships"
 SEASON = "Summer 2027"
 COUNTRY = "US"
