@@ -118,7 +118,8 @@ const eligibility = z.object({
   cpt: z.object({ status: z.enum(CPT_STATUSES).default("unknown") }).passthrough().optional(),
   opt: z.object({ status: z.enum(CPT_STATUSES).default("unknown") }).passthrough().optional(),
   sponsorship: z.object({ status: z.enum(SPONSORSHIP_STATUSES).default("unknown"), internship_sponsorship: z.enum(SPONSORSHIP_STATUSES).optional(), future_sponsorship: z.enum(SPONSORSHIP_STATUSES).optional() }).default({ status: "unknown" }),
-  work_authorization_note: text(1000).optional(),
+  // Unknown/not-stated source facts are represented as null by GATE 2.x producers.
+  work_authorization_note: text(1000).nullish(),
 }).passthrough().transform((e) => ({ ...e, f1: { ...e.f1, cpt_status: e.cpt?.status ?? e.f1.cpt_status, opt_status: e.opt?.status ?? e.f1.opt_status } }));
 
 const compensation = z.object({
