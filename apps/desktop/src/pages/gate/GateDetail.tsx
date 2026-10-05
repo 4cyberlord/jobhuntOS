@@ -32,6 +32,7 @@ const safeFmtAgo = (ms: number | undefined) => {
   if (ms == null || Number.isNaN(ms)) return "Not captured";
   try { return fmtAgo(ms); } catch { return "Not captured"; }
 };
+const compactId = (value: string, max = 30) => value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
 const Mark = ({ tone }: { tone: Tone }) => <span className={`gd-mark ${tone}`}>{tone === "bad" ? <XMarkIcon /> : tone === "q" ? <MinusSmallIcon /> : <CheckIcon />}</span>;
 const Row = ({ label, children, tone, mark }: { label: string; children: ReactNode; tone?: Tone; mark?: Tone }) => (
@@ -235,7 +236,7 @@ export function GateDetail({ g, similar, onSelectSimilar, onApprove, onDecide, o
               <div className="gd-rows">
                 <Row label="Posted">{postedAt ? `${safeFmtDate(postedAt)} (${safeFmtAgo(postedAt)})` : "Not captured"}</Row>
                 <Row label="Deadline" tone={urgent ? "bad" : undefined}>{dl ? `${safeFmtDate(dl)}${left !== undefined && left >= 0 ? ` (in ${left} day${left === 1 ? "" : "s"})` : ""}` : "Not captured"}</Row>
-                <Row label="Applications">{applicationCount ?? "Not captured"}</Row><Row label="Job ID">{safeExternalId || "Not captured"}</Row>
+                <Row label="Applications">{applicationCount ?? "Not captured"}</Row><Row label="Job ID">{safeExternalId ? <span className="gd-job-id" title={safeExternalId}>{compactId(safeExternalId)}</span> : "Not captured"}</Row>
               </div>
               <button className="gd-outline-link" onClick={openApply} disabled={!canOpenApply}>Open application<ArrowTopRightOnSquareIcon /></button>
             </Card>

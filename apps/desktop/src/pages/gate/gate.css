@@ -199,6 +199,7 @@
 .gd-row:last-child { border-bottom: 0; padding-bottom: 2px; } .gd-row:first-child { padding-top: 2px; }
 .gd-row > span { color: var(--muted); }
 .gd-row > b { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; text-align: right; }
+.gd-row .gd-job-id { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gd-row .t-ok { color: var(--green); } .gd-row .t-maybe { color: var(--amber); } .gd-row .t-bad { color: var(--red); } .gd-row .t-q { color: var(--muted); }
 .gd-mark { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; }
 .gd-mark svg { width: 13px; height: 13px; }
