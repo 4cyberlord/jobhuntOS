@@ -14,7 +14,7 @@ const bridgeAuthorized = (req) => secureEqual(bearer(req), process.env.GATE_INGE
 const lifecycle = (phase, fields) => {
   const url = process.env.LIFECYCLE_RELAY_URL, token = process.env.LIFECYCLE_EVENT_TOKEN;
   if (!url || !token) return;
-  void fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ phase, ...fields }), signal: AbortSignal.timeout(5000) })
+  void fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ source: "railway", prefix: "🚂 RAILWAY-GATE", phase, ...fields }), signal: AbortSignal.timeout(5000) })
     .then((response) => { if (!response.ok) console.warn(`lifecycle relay HTTP ${response.status}`); })
     .catch((error) => console.warn("lifecycle relay unavailable", error instanceof Error ? error.message : error));
 };
