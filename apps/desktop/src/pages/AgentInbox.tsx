@@ -220,7 +220,8 @@ export default function AgentInbox() {
                           </div>
                           <div className="ibx-pay"><span>{payText(e)}</span><span className="ibx-score">{Math.round(e.match.score)}% match</span></div>
                           <div className="ibx-match-btns">
-                            <button className="btn primary" onClick={() => navigate("gate", { item: g.id })}>View Details</button>
+                            <button className="btn primary" style={{ marginBottom: 4 }} onClick={() => navigate("gate", { item: g.id })}>View Details</button>
+                            <div style={{ height: 6 }} aria-hidden />
                             {gone ? <button className="btn" onClick={() => act.setGateStatus(g.id, "discovered")}>Undo</button>
                               : approved ? <button className="btn saved" disabled style={{ opacity: 1 }}><BookmarkSolid />Approved ✓</button>
                               : <button className="btn" onClick={() => { act.approveGate(g.id); toast(`Approved ${e.opportunity.title} at ${e.company.name}`); }}><BookmarkIcon />Approve</button>}
@@ -241,7 +242,8 @@ export default function AgentInbox() {
                           </div>
                           <div className="ibx-pay"><span>{j.pay}</span><span className="ibx-score">{j.score}% match</span></div>
                           <div className="ibx-match-btns">
-                            <button className="btn primary" onClick={() => openJob(j.id)}>View Details</button>
+                            <button className="btn primary" style={{ marginBottom: 4 }} onClick={() => openJob(j.id)}>View Details</button>
+                            <div style={{ height: 6 }} aria-hidden />
                             {gone ? <button className="btn" onClick={() => act.moveJob(j.id, "pending_review")}>Undo</button>
                               : saved ? <button className="btn saved" disabled style={{ opacity: 1 }}><BookmarkSolid />{j.status === "saved" ? "Saved" : j.status === "preparing" ? "Preparing" : "Saved"}</button>
                               : <button className="btn" onClick={() => { act.moveJob(j.id, "saved"); toast(`Saved ${j.role} at ${j.company}`); }}><BookmarkIcon />Save</button>}

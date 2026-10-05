@@ -63,11 +63,11 @@ function TaskRow({ t, onToggle, openCount }: { t: Task; onToggle: () => void; op
   );
 }
 
-const DOT: Record<Status, string> = { saved: "var(--purple)", preparing: "var(--amber)", applied: "var(--green)", interviewing: "var(--blue)", offer: "var(--purple)", rejected: "var(--red)", pending_review: "var(--faint)", dismissed: "var(--faint)" };
+const DOT: Record<Status, string> = { saved: "var(--purple)", preparing: "var(--amber)", applied: "var(--green)", assessment: "var(--amber)", interviewing: "var(--blue)", offer: "var(--purple)", rejected: "var(--red)", pending_review: "var(--faint)", dismissed: "var(--faint)" };
 const BAR: Record<string, string> = { saved: "var(--purple-soft)", preparing: "var(--amber-soft)", applied: "var(--green-soft)", interviewing: "var(--blue-soft)", offer: "var(--purple-soft)", rejected: "var(--red-soft)" };
 const BARSTRONG: Record<string, string> = { saved: "color-mix(in srgb, var(--purple) 45%, var(--panel))", preparing: "color-mix(in srgb, var(--amber) 55%, var(--panel))", applied: "color-mix(in srgb, var(--green) 50%, var(--panel))", interviewing: "color-mix(in srgb, var(--blue) 45%, var(--panel))", offer: "color-mix(in srgb, var(--purple) 45%, var(--panel))", rejected: "color-mix(in srgb, var(--red) 55%, var(--panel))" };
 const PIPE: { s: Status; n: string }[] = [
-  { s: "saved", n: "Saved" }, { s: "preparing", n: "Preparing" }, { s: "applied", n: "Applied" }, { s: "interviewing", n: "Interviewing" }, { s: "offer", n: "Offer" }, { s: "rejected", n: "Rejected" },
+  { s: "saved", n: "Saved" }, { s: "preparing", n: "Preparing" }, { s: "applied", n: "Applied" }, { s: "assessment", n: "Assessment" }, { s: "interviewing", n: "Interviewing" }, { s: "offer", n: "Offer" }, { s: "rejected", n: "Rejected" },
 ];
 
 const ACT_ICON: Record<string, { Icon: typeof DocumentTextIcon; tone: string }> = {

@@ -11,7 +11,7 @@ import "./calendar/calendar.css";
 
 type View = "day" | "week" | "month";
 type Filter = "all" | "interview" | "followup" | "deadline" | "assessment" | "personal";
-const HOUR = 60;
+const HOUR = 72;
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All Events" }, { id: "interview", label: "Interviews" }, { id: "followup", label: "Follow-ups" },
   { id: "deadline", label: "Deadlines" }, { id: "assessment", label: "Assessments" }, { id: "personal", label: "Other" },
@@ -142,7 +142,7 @@ export default function Calendar() {
         onClick={(e) => { e.stopPropagation(); setSelId(ev.id); }}
         title={`${ev.title}${ev.company ? " · " + ev.company : ""}\n${fmtRange(ev.start, ev.end)}`}
       >
-        {ev.kind === "interview" && ev.company && <Logo name={ev.company.split(" ")[0]} size={18} />}
+        {ev.kind === "interview" && ev.company && <Logo name={ev.company.split(" ")[0]} size={22} />}
         {ev.kind === "followup" && (ev.title.toLowerCase().includes("thank") ? <ArrowPathIcon className="cal-ev-ic" /> : <BellIcon className="cal-ev-ic" />)}
         <span className="cal-ev-t">
           <b>{ev.title}</b>
@@ -170,7 +170,7 @@ export default function Calendar() {
 
   const timeGrid = (
     <div className="cal-grid-scroll" ref={gridRef}>
-      <div className="cal-grid" style={{ ["--cols" as string]: days.length }}>
+      <div className={`cal-grid ${view}`} style={{ ["--cols" as string]: days.length }}>
         <div className="cal-gh">
           <span />
           {days.map((d) => (

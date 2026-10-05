@@ -33,6 +33,7 @@
   },
   "bundle": {
     "active": true,
+    "resources": ["binaries/tectonic"],
     "targets": [
       "app",
       "dmg"

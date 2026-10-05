@@ -8,7 +8,7 @@ export type ListKey = (typeof LIST_COLLECTIONS)[number];
 export type WsCollection = (typeof WS_COLLECTIONS)[number];
 export type WsChange = { c: WsCollection; id: string; u: number; deleted?: boolean; doc?: Record<string, unknown> };
 export type Entry = { h: string; u: number; p: boolean; d?: boolean };
-export type Meta = { since: string; items: Record<string, Entry> };
+export type Meta = { since: string; cursorId?: string; items: Record<string, Entry> };
 export const EPOCH = "1970-01-01T00:00:00.000Z";
 export const newMeta = (): Meta => ({ since: EPOCH, items: {} });
 

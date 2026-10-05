@@ -87,6 +87,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
     }),
     [route, params, navigate, jobId, modal, toasts, toast, search],
   );
+  // Expose toast for non-hook callers (e.g. Kanban email sync button) without breaking hook rules
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__jhosToast = toast;
+    return () => { delete (window as unknown as Record<string, unknown>).__jhosToast; };
+  }, [toast]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export function useUI() {

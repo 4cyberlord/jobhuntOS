@@ -9,7 +9,21 @@ export async function upsertPending(input: AgentOpportunity, key: string) { cons
 export async function audit(action: string, externalId?: string) { const d = await database(); await d.collection("audit_logs").insertOne({ action, externalId, createdAt: new Date() }); }
 
 /* ───────── GATE inbox ───────── */
-export type GateIngestResult = { gate_opportunity_id: string; gate_status: GateStatus; duplicate: boolean; discarded?: boolean; existing_job_id?: string; telegram_status?: string };
+export type GateIngestResult = {
+  gate_opportunity_id: string;
+  gate_status: GateStatus;
+  duplicate: boolean;
+  created: boolean;
+  discarded?: boolean;
+  existing_job_id?: string;
+  fingerprint?: string;
+  telegram?: Partial<DeliveryState>;
+  opportunity?: GateEnvelope;
+};
+const authoritativeEnvelope = (doc: Record<string, any>): GateEnvelope | undefined => doc.envelope ? {
+  ...doc.envelope,
+  metadata: { ...doc.envelope.metadata, fingerprint: doc.fingerprint, gate_status: doc.gate_status },
+} as GateEnvelope : undefined;
 export async function ingestGate(item: GateEnvelope, opts: { telegramDelivered?: boolean } = {}): Promise<GateIngestResult & { created: boolean }> {
   const d = await database(); const c = d.collection("gate_opportunities"); const now = new Date();
   const fingerprint = fingerprintOf(item); const soft = softKey(item);
@@ -18,28 +32,44 @@ export async function ingestGate(item: GateEnvelope, opts: { telegramDelivered?:
   const plan = classifyIncoming(existing ? { gate_status: existing.gate_status as GateStatus } : null, item);
   if (plan.action === "discard") { await audit("gate.opportunity.discarded", external_id); return { gate_opportunity_id: "", gate_status: "dismissed", duplicate: false, discarded: true, created: false }; }
   if (plan.action === "update" && existing) {
-    await c.updateOne({ _id: existing._id }, { $set: { ...mutableUpdate(item, now), deliveredAt: null } });
+    const updated = await c.findOneAndUpdate({ _id: existing._id }, { $set: { ...mutableUpdate(item, now), deliveredAt: null } }, { returnDocument: "after" });
     await audit("gate.opportunity.duplicate", external_id);
-    return { gate_opportunity_id: String(existing._id), gate_status: plan.gate_status, duplicate: true, created: false, telegram_status: (existing.delivery?.telegram?.status as string | undefined) ?? "sent", ...(existing.linked_job_id ? { existing_job_id: String(existing.linked_job_id) } : {}) };
+    const stored = updated ?? existing;
+    return { gate_opportunity_id: String(existing._id), gate_status: plan.gate_status, duplicate: true, created: false, fingerprint: stored.fingerprint as string, telegram: (stored.delivery?.telegram as Partial<DeliveryState> | undefined) ?? { status: "sent" }, opportunity: authoritativeEnvelope(stored), ...(existing.linked_job_id ? { existing_job_id: String(existing.linked_job_id) } : {}) };
   }
   const flags = deriveFlags(item, now.getTime());
   const doc = { fingerprint, softKey: soft, external_id, provider, gate_status: plan.gate_status, flags, linked_job_id: null, delivery: { telegram: initialDelivery(!!opts.telegramDelivered, now) }, envelope: { ...item, agent: { ...item.agent, flags }, metadata: { ...item.metadata, fingerprint, gate_status: plan.gate_status } }, createdAt: now, updatedAt: now, deliveredAt: null };
   let id: string;
   try { id = String((await c.insertOne(doc)).insertedId); } catch (e) {
     if ((e as { code?: number }).code !== 11000) throw e; // lost a race on the unique fingerprint
-    const won = await c.findOne({ fingerprint }); return { gate_opportunity_id: String(won?._id), gate_status: (won?.gate_status as GateStatus) ?? "discovered", duplicate: true, created: false };
+    const won = await c.findOne({ fingerprint }); return { gate_opportunity_id: String(won?._id), gate_status: (won?.gate_status as GateStatus) ?? "discovered", duplicate: true, created: false, fingerprint: won?.fingerprint as string | undefined, telegram: won?.delivery?.telegram as Partial<DeliveryState> | undefined, opportunity: won ? authoritativeEnvelope(won) : undefined };
   }
   await audit("gate.opportunity.created", external_id);
   const n = notificationFor(item, flags);
   if (n) await d.collection("notifications").insertOne({ ...n, opportunityExternalId: external_id, deliveredAt: null, createdAt: now });
-  return { gate_opportunity_id: id, gate_status: plan.gate_status, duplicate: false, created: true, telegram_status: doc.delivery.telegram.status };
+  return { gate_opportunity_id: id, gate_status: plan.gate_status, duplicate: false, created: true, fingerprint, telegram: doc.delivery.telegram, opportunity: authoritativeEnvelope(doc) };
 }
 export async function gateDecisions() { const d = await database(); const rows = await d.collection("gate_opportunities").find({ gate_status: { $in: [...USER_DECIDED] } }, { projection: { external_id: 1, gate_status: 1, updatedAt: 1 } }).toArray(); return rows.map((r) => ({ gate_opportunity_id: String(r._id), external_id: r.external_id, gate_status: r.gate_status, updatedAt: r.updatedAt })); }
-export async function gateForDesktop(since?: string) {
+export async function gateForDesktop(since?: string, afterId?: string) {
   const d = await database(); const c = d.collection("gate_opportunities");
-  const rows = await c.find(since ? { updatedAt: { $gt: new Date(since) } } : { deliveredAt: null }).sort({ updatedAt: 1 }).limit(100).toArray();
+  const at = since ? new Date(since) : undefined;
+  const cursor = at
+    ? afterId && ObjectId.isValid(afterId) ? { $or: [{ updatedAt: { $gt: at } }, { updatedAt: at, _id: { $gt: new ObjectId(afterId) } }] } : { updatedAt: { $gt: at } }
+    : { deliveredAt: null };
+  const candidates = await c.find(cursor).sort({ updatedAt: 1, _id: 1 }).limit(100).toArray();
+  const rows: typeof candidates = []; let responseBytes = 100;
+  for (const row of candidates) {
+    const bytes = JSON.stringify(row.envelope).length + 500;
+    if (rows.length && responseBytes + bytes > 2_500_000) break;
+    rows.push(row); responseBytes += bytes;
+  }
   if (!since && rows.length) await c.updateMany({ _id: { $in: rows.map((r) => r._id) } }, { $set: { deliveredAt: new Date() } });
-  return rows.map((r) => ({ gate_opportunity_id: String(r._id), fingerprint: r.fingerprint, gate_status: r.gate_status, received_at: (r.createdAt as Date).toISOString(), updated_at: (r.updatedAt as Date).toISOString(), envelope: { ...r.envelope, metadata: { ...r.envelope.metadata, gate_status: r.gate_status } } }));
+  return {
+    more: rows.length < candidates.length || candidates.length === 100,
+    next_since: rows.at(-1)?.updatedAt instanceof Date ? rows.at(-1)!.updatedAt.toISOString() : since,
+    next_id: rows.at(-1) ? String(rows.at(-1)!._id) : afterId,
+    items: rows.map((r) => ({ gate_opportunity_id: String(r._id), fingerprint: r.fingerprint, gate_status: r.gate_status, received_at: (r.createdAt as Date).toISOString(), updated_at: (r.updatedAt as Date).toISOString(), envelope: { ...r.envelope, metadata: { ...r.envelope.metadata, gate_status: r.gate_status } } })),
+  };
 }
 export async function setGateStatus(id: string, gate_status: GateStatus, linked_job_id?: string) {
   if (!ObjectId.isValid(id)) return false;
@@ -120,7 +150,7 @@ export const incomingWins = (existingU: number | undefined, incomingU: number) =
 let wsIndexed = false;
 const PAGE = 150; // keeps each response well under the 4.5MB serverless limit
 /** Applies a batch of changes, then returns everything that changed on the server since `since` (ISO time). `next` is the new cursor. */
-export async function workspaceSync(changes: WorkspaceChange[], since: string) {
+export async function workspaceSync(changes: WorkspaceChange[], since: string, cursorId?: string) {
   const c = (await database()).collection<{ _id: string; c: string; id: string; u: number; deleted: boolean; doc: unknown; at: Date }>("workspace");
   if (!wsIndexed) { await c.createIndex({ at: 1 }); wsIndexed = true; }
   let accepted = 0;
@@ -133,13 +163,22 @@ export async function workspaceSync(changes: WorkspaceChange[], since: string) {
       await c.insertOne({ _id, ...set }); accepted++; // no document yet
     } catch (e) { if ((e as { code?: number }).code !== 11000) throw e; /* exists with an equal or newer u: server keeps its copy */ }
   }
-  const rows = await c.find({ at: { $gt: new Date(since) } }).sort({ at: 1 }).limit(PAGE).toArray();
-  const last = rows.at(-1)?.at;
+  const at = new Date(since);
+  const cursor = cursorId ? { $or: [{ at: { $gt: at } }, { at, _id: { $gt: cursorId } }] } : { at: { $gt: at } };
+  const candidates = await c.find(cursor).sort({ at: 1, _id: 1 }).limit(PAGE).toArray();
+  const rows: typeof candidates = []; let responseBytes = 100;
+  for (const row of candidates) {
+    const bytes = JSON.stringify(row).length + 1;
+    if (rows.length && responseBytes + bytes > 2_500_000) break;
+    rows.push(row); responseBytes += bytes;
+  }
+  const last = rows.at(-1);
   return {
     accepted,
-    // step back 1ms so rows sharing the boundary instant are never skipped; seeing one twice is harmless (clients compare `u`)
-    next: last ? new Date(last.getTime() - 1).toISOString() : since,
-    more: rows.length === PAGE,
+    // Timestamp + id is a stable compound cursor, so byte-sized pages never skip rows sharing the same millisecond.
+    next: last ? last.at.toISOString() : since,
+    next_id: last?._id ?? cursorId,
+    more: rows.length < candidates.length || candidates.length === PAGE,
     changes: rows.map((r) => ({ c: r.c, id: r.id, u: r.u, deleted: r.deleted, doc: r.doc })),
   };
 }
@@ -185,9 +224,11 @@ export async function setAgentKey(key: string) { await (await database()).collec
 export async function agentKeyOk(given: string | undefined) {
   if (!given) return false;
   const row = (await (await database()).collection("secrets").findOne({ _id: "agent_api_key" } as never)) as { hash: string } | null;
-  if (row) return sameHex(sha(given), row.hash);
   const env = process.env.AGENT_API_KEY;
-  return !!env && sameHex(sha(given), sha(env));
+  // During a credential rotation the database retains the old hash until every
+  // trusted sender has deployed the replacement. Accept either trusted source;
+  // once the rotation completes both resolve to the same key.
+  return !!((row && sameHex(sha(given), row.hash)) || (env && sameHex(sha(given), sha(env))));
 }
 let sessionIndexed = false;
 const seen = new Map<string, number>(); // short-lived cache so a busy sync does not query the database on every request

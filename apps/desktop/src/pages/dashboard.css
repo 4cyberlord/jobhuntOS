@@ -101,8 +101,9 @@
 .dash-sums em { font-style: normal; font-size: calc(12.5px * var(--fs, 1)); font-weight: 650; color: var(--muted); }
 .dash-sums em.up { color: var(--green); } .dash-sums em.down { color: var(--red); }
 
-.c-match .dash-list { gap: 8px; }
-.dash-match { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+.c-match { padding-bottom: 16px; }
+.c-match .dash-list { gap: 12px; }
+.dash-match { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
 .dash-match-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; border: 0; background: none; padding: 0; text-align: left; }
 .dash-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; max-height: 21px; overflow: hidden; }
 .dash-tags i { white-space: nowrap; }
@@ -112,9 +113,10 @@
 .dash-chev-btn { width: 28px; height: 28px; flex: none; }
 .dash-chev-btn svg { width: 15px; height: 15px; }
 
-.dash-timeline { list-style: none; margin: 0; padding: 0; display: grid; position: relative; }
+.c-recent { padding-bottom: 16px; }
+.dash-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; position: relative; }
 .dash-timeline::before { content: ""; position: absolute; left: 5px; top: 14px; bottom: 14px; width: 2px; background: var(--line); }
-.dash-timeline li { display: flex; align-items: center; gap: 12px; padding: 9px 0; position: relative; }
+.dash-timeline li { display: flex; align-items: center; gap: 12px; padding: 12px 0; position: relative; }
 .dash-tl-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; position: relative; z-index: 1; box-shadow: 0 0 0 3px var(--panel); }
 .dash-timeline time, .dash-stale time { color: var(--muted); font-size: calc(12px * var(--fs, 1)); white-space: nowrap; align-self: flex-start; margin-top: 2px; }
 .dash-stale time { align-self: center; margin: 0; font-size: calc(12.5px * var(--fs, 1)); color: var(--text-2); }

@@ -27,15 +27,39 @@ These are deliberately separate state machines.
 
 A Job only exists once `gate_status = approved`; it starts at stage `saved`. Stage changes never alter `gate_status` and vice versa. User decisions (`approved`, `dismissed`, `saved_for_later`, `expired`) are never overwritten by the agent.
 
-## 2. Field reference
+## 2. Production delivery contract
+
+**New discovery agents must emit one complete GATE 2.x envelope per opportunity** to `POST /v1/agent/gate/opportunities`. Railway may chunk transport at its own layer, but it must reassemble and SHA-256-verify the exact JSON before making that request; a `201`/`200` response and its server fingerprint are the acknowledgement for that one opportunity. Send the next opportunity only after that acknowledgement. Never send an explanatory array such as `{ "...full record...": "..." }` as a discovery payload.
+
+For a direct batch import only, use `{ event: "gate.opportunity.batch", schema_version: "2.0", search, results: [...] }`; each result omits only the shared envelope fields. The API validates each entry and reports indexed partial failures. Idempotency is server-owned: the canonical URL/company/title fingerprint prevents retransmission from creating a second GATE record.
+
+The `POST /v1/agent/gate/legacy` endpoint is reserved for historic Telegram/slim-relay records. During migration it recognizes the former rich-v1 `original_posting_snapshot` shape and preserves it, but it is not a production contract. A rich-v1 record without a full raw posting is explicitly marked `recovery_required`; it is never silently reduced to a card-only record.
+
+## 3. GATE 2.x compatibility
+
+The API accepts both the existing 1.x envelope and the richer 2.x watcher envelope. A 2.x record is stored with its three independent layers intact:
+
+- `original_posting`: bounded employer/source snapshot (`raw_description` max 100,000 characters), content hash and capture metadata.
+- `structured_facts`: extracted requirements, responsibilities, skills, technologies, education, compensation, eligibility, hiring process and contacts, including provenance/evidence where supplied.
+- `gate_assessment`: personalized match dimensions, satisfied/missing/unknown requirements, résumé evidence, recommended action, urgency and assessment confidence.
+
+At ingest, 2.x is also normalized into the stable 1.x fields used by existing Inbox components (`opportunity`, `match`, `eligibility`, `compensation`, `source`). The rich layers remain on the same envelope and are not discarded. Unknown fields inside supported sections pass through validation so additive watcher updates remain forward-compatible.
+
+The 2.x watcher spelling `in_person` is accepted and stored as the canonical legacy value `onsite`. Nullable logistics fields remain unknown rather than being converted to false. Assessment `satisfies`, `missing`, `unknown`, résumé evidence/emphasis and eligibility risk are copied into the normalized `match` view while the complete assessment remains available in `gate_assessment`.
+
+Posting snapshots and version history are bounded, request bodies are limited to 4 MiB, and desktop/workspace synchronization uses byte-aware pages. Existing records can therefore receive the richer layers without overwriting a user's GATE decision or exceeding serverless response limits.
+
+MongoDB remains authoritative for identity, status and delivery. A watcher-side CSV ledger may be used as a recovery/index aid, but it must never replace database deduplication or delivery state.
+
+## 3. Field reference
 
 Types: `iso` = ISO-8601 datetime with offset (e.g. `2026-10-02T17:30:00-05:00`); `url` = absolute URL. "Req" = required (no default).
 
 ### Envelope (top level)
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `event` | literal `gate.opportunity.discovered` | same | Event type (batch: `gate.opportunity.batch`) |
-| `schema_version` | string | `"1.0"` | Contract version |
+| `event` | literal `gate.opportunity.discovered` | same | Event type (batch: `gate.opportunity.batch` or `gate.discovery.batch`) |
+| `schema_version` | string | `"1.0"` | Contract version; the parser also accepts and normalizes `2.x` |
 | `search`, `opportunity`, `company`, `match`, `source`, `metadata` | objects | Req | See below |
 | `eligibility` | object | all defaults | See below |
 | `compensation` | object | optional | See below |
@@ -77,7 +101,16 @@ Types: `iso` = ISO-8601 datetime with offset (e.g. `2026-10-02T17:30:00-05:00`);
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `score` | number 0-100 | Req | Fit score |
-| `level` | enum `strong, moderate, weak` | - | Derived by `levelOf`: >=85 strong, >=65 moderate, else weak |
+| `level` | enum `strong, moderate, weak` | Derived | Legacy compatibility level: >=85 strong, >=65 moderate, else weak. Incoming five-level values are accepted and normalized. |
+| `fit_level` | enum `perfect, strong, good, partial, low` | Derived | 95+, 85+, 70+, 50+, otherwise low |
+| `perfect_fit` | boolean | Derived | True only for score >=95 with no explicit unsatisfied hard requirement |
+| `badge` | string | Derived | `PERFECT MATCH`, `STRONG MATCH`, `GOOD MATCH`, `PARTIAL MATCH`, or `LOW MATCH` |
+| `already_satisfies` | `{requirement,evidence?,profile_evidence?,confidence?}[]` max 100 | `[]` | Requirements supported by candidate evidence |
+| `missing` | `{requirement,type?,status?,reason?,severity?}[]` max 100 | `[]` | Known missing requirements; hard conflicts use `type=hard_requirement`, `status=not_satisfied` |
+| `unknown` | `{field,reason?,manual_confirmation_needed?}[]` max 100 | `[]` | Unconfirmed facts; never folded into missing |
+| `supporting_evidence` | string(2000)[] max 100 | `[]` | Profile evidence supporting the score |
+| `recommended_resume_emphasis` | string(500)[] max 100 | `[]` | Résumé themes to emphasize |
+| `eligibility_risk` | `{level,reason}` | `{level:"unknown",reason:null}` | Separate work-authorization risk assessment |
 | `matching_skills` | string(100)[] max 50 | `[]` | |
 | `matching_experience` | string(300)[] max 50 | `[]` | |
 | `matching_education` | string(300)[] max 20 | `[]` | |
@@ -91,6 +124,7 @@ Types: `iso` = ISO-8601 datetime with offset (e.g. `2026-10-02T17:30:00-05:00`);
 | `citizenship_required`, `us_person_required` | boolean | `false` | |
 | `f1.status` | enum `eligible, likely_eligible, not_eligible, unknown` | `unknown` | F-1 eligibility |
 | `f1.cpt_status`, `f1.opt_status` | enum `allowed, likely_allowed, not_allowed, unknown` | `unknown` | |
+| `cpt.status`, `opt.status` | same enum | - | New watcher aliases; normalized into `f1.cpt_status` / `f1.opt_status` for older clients |
 | `sponsorship.status` | enum `available, not_available, not_required, unknown` | `unknown` | |
 | `sponsorship.internship_sponsorship`, `.future_sponsorship` | same enum | - | |
 | `work_authorization_note` | string(1000) | - | Evidence quote |
@@ -133,7 +167,7 @@ Types: `iso` = ISO-8601 datetime with offset (e.g. `2026-10-02T17:30:00-05:00`);
 ### Derived flags (`deriveFlags`)
 `strong_match` (score >= 85), `cpt_confirmed` (cpt_status = allowed), `sponsorship_available`, `citizenship_required`, `us_person_required`, `remote`, `deadline_soon` (deadline in the future and within 4 days), `source_unverified` (source.official = false). Agent-supplied flags are kept.
 
-## 3. Example payload
+## 4. Example payload
 
 ```json
 {
@@ -372,7 +406,20 @@ Shared `search`, 1-100 `results` (each result is an envelope without `event`, `s
 }
 ```
 
-## 4. Endpoints
+GATE Scout 2.x may instead send `event: "gate.discovery.batch"` with an `opportunities` array. Every array entry is a complete opportunity envelope; a missing `event`, `schema_version`, or `search` is filled from the batch envelope when supplied. The `batch.new_count`, `duplicate_count`, and `rejected_count` values are informational—the API recomputes its own summary.
+
+```json
+{
+  "event": "gate.discovery.batch",
+  "schema_version": "2.0",
+  "batch": { "search_id": "2026-10-03T20:45:00-05:00", "new_count": 2, "duplicate_count": 0, "rejected_count": 0 },
+  "opportunities": [
+    { "event": "gate.opportunity.discovered", "schema_version": "2.0", "search": {}, "identity": {}, "...": "complete record" }
+  ]
+}
+```
+
+## 5. Endpoints
 
 All `/v1/agent/*` require `Authorization: Bearer $AGENT_API_KEY`; all `/v1/desktop/*` require `Authorization: Bearer $DESKTOP_SYNC_KEY`. Rate limit 120 req/min. Missing/incorrect key gives 401.
 
@@ -391,11 +438,22 @@ The legacy `/v1/agent/opportunities*` endpoints are unchanged.
 
 ### POST /v1/agent/gate/opportunities[/batch]
 - 400 `{error:"sensitive fields are forbidden"}` if any key looks like a password/secret/token (`containsSensitiveKey`).
-- 422 `{error:"invalid payload", details:"path: message; ..."}` on schema failure.
+- 422 `{error:"invalid payload", details:"path: message; ..."}` for an invalid single record or a batch with no valid records.
 - 201 if at least one item was created, otherwise 200.
-- Single envelope response: `{ "success": true, "result": { "gate_opportunity_id": "...", "gate_status": "discovered", "duplicate": false } }`
-- Batch response: `{ "success": true, "results": [ ...same shape... ], "summary": { "received": 2, "created": 1, "duplicates": 1, "discarded": 0 } }`
+- Single envelope responses retain `result` and add authoritative `stored`, `delivery`, and the normalized stored `opportunity`.
+- Batch responses stay compact. Each valid result retains the legacy id/status fields and adds `stored` and `delivery`; complete records are available through desktop sync.
+- Mixed batches save valid entries and return invalid entries as `{ok:false,index,error}`. They return `success:false`, `partial:true`, and a server-computed summary including `valid` and `invalid`.
 - Duplicates return `duplicate: true` with the existing id, current `gate_status`, and `existing_job_id` when the item was already approved into a Job. Discarded items return `discarded: true` and an empty id.
+
+```json
+{
+  "success": true,
+  "result": { "gate_opportunity_id": "...", "gate_status": "discovered", "duplicate": false },
+  "stored": { "ok": true, "gate_opportunity_id": "...", "fingerprint": "sha256:...", "duplicate": false, "gate_status": "discovered" },
+  "delivery": { "telegram": { "status": "pending", "retry_count": 0 }, "desktop": { "status": "available" } },
+  "opportunity": { "event": "gate.opportunity.discovered", "schema_version": "2.0" }
+}
+```
 
 ```bash
 curl -X POST "$API/v1/agent/gate/opportunities" -H "Authorization: Bearer $AGENT_API_KEY" -H "Content-Type: application/json" -d @envelope.json
@@ -421,7 +479,7 @@ Body `{ "gate_status": "<GATE_STATUSES>", "linked_job_id"?: string }`. 200 `{suc
 curl -X POST "$API/v1/desktop/gate/$ID/status" -H "Authorization: Bearer $DESKTOP_SYNC_KEY" -H "Content-Type: application/json" -d '{"gate_status":"approved","linked_job_id":"job_123"}'
 ```
 
-## 5. Duplicate detection
+## 6. Duplicate detection
 
 1. **Fingerprint**: `sha256( normCompany | normTitleWithoutSeasonWords | canonicalApplyUrl )`, stored as `sha256:<hex>`.
    - `norm`: lowercase, `&` becomes "and", non-alphanumerics collapse to single spaces.
@@ -433,7 +491,9 @@ curl -X POST "$API/v1/desktop/gate/$ID/status" -H "Authorization: Bearer $DESKTO
 5. `agent.decision = discard` is never stored.
 6. A unique index on `fingerprint` plus duplicate-key handling resolves concurrent inserts.
 
-## 6. Approve maps to a Job
+Candidate fit is never a discovery filter. A legitimate open target internship sent with `agent.decision = surface` is stored even when its score is 0 or its fit level is `low`. The watcher remains responsible for validating season, role family, legitimacy and posting status before delivery.
+
+## 7. Approve maps to a Job
 
 When the user clicks Approve in the desktop app:
 1. Upsert the Company by name (fill website, careers_url, logo_url, industry, headquarters if missing).
@@ -443,12 +503,13 @@ When the user clicks Approve in the desktop app:
 5. Report back with `POST /v1/desktop/gate/:id/status` `{gate_status:"approved", linked_job_id}`.
 6. Approve never submits an application and never contacts the employer.
 
-Notifications: the API creates a `notifications` doc for strong matches (score >= 85) at ingest, with "CPT confirmed" / "deadline soon" wording (urgency `high` when the deadline is soon). The desktop also raises a local reminder as a deadline approaches.
+Notifications: the API creates a distinct high-urgency notification for a true perfect fit and continues creating notifications for strong matches (score >= 85). Good, partial and low matches remain visible without creating notification noise. The desktop also raises a local reminder as a deadline approaches.
 
-## 7. Integration points
+## 8. Integration points
 
 | Surface | Use |
 |---|---|
+| GATE Inbox | Shows five-level badges, perfect-fit emphasis, satisfied/missing/unknown requirements, résumé emphasis and separate eligibility risk |
 | Job Drawer | Shows match reason, matching/missing skills, eligibility (F-1/CPT/OPT, sponsorship), source and verification, agent confidence |
 | Documents | Resume/cover letter tailoring suggestions use `matching_skills` and `missing_or_unclear` |
 | Credentials Vault | Local only; GATE never reads or transmits vault data |
@@ -456,7 +517,7 @@ Notifications: the API creates a `notifications` doc for strong matches (score >
 | Agent Inbox | Summary message per run (counts from batch `summary`) |
 | Notifications | `notifications` collection, delivered via `GET /v1/desktop/notifications` |
 
-## 8. Security rules
+## 9. Security rules
 
 - The agent key can only submit opportunities, read decisions, and read the search profile. It cannot read MongoDB, the vault, or credentials.
 - Any payload (at any depth) containing a key matching password/secret/token patterns is rejected with 400 before parsing.
@@ -465,7 +526,7 @@ Notifications: the API creates a `notifications` doc for strong matches (score >
 - Desktop sync uses a separate key (`DESKTOP_SYNC_KEY`) that must never be given to the agent.
 - Agent content is untrusted text: render as plain text, validate URLs, never execute.
 
-## 9. MongoDB layout
+## 10. MongoDB layout
 
 Collection `gate_opportunities`:
 ```
@@ -475,7 +536,7 @@ Collection `gate_opportunities`:
 Indexes: `fingerprint` (unique), `external_id`, `gate_status`, `updatedAt`.
 Related: `notifications { title, body, urgency, opportunityExternalId, deliveredAt, createdAt }`, `audit_logs { action, externalId, createdAt }` (actions `gate.opportunity.created|duplicate|discarded`, `gate.status.<status>`).
 
-## 10. Relay and Telegram backfill
+## 11. Relay and Telegram backfill
 
 The Vercel relay (`~/code/gate-telegram-relay/api/gate.js`, separate repo) saves each opportunity through `POST /v1/agent/gate/legacy` **before** sending the Telegram notification, so a Telegram failure never loses a record. It skips Telegram for duplicates and when called with `?notify=0`. Relay env: `GATE_API_URL`, `AGENT_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
 
@@ -486,11 +547,13 @@ npx tsx apps/api/scripts/import-gate.ts --telegram ~/Downloads/Telegram\ Desktop
 GATE_API_URL=https://your-api AGENT_API_KEY=... npx tsx apps/api/scripts/import-gate.ts --telegram .../result.json
 npx tsx apps/api/scripts/import-gate.ts --json backfill.json   # relay-shaped JSON, e.g. the Railway BACKFILL_JSON
 ```
-Imports are idempotent (same fingerprint/external id/soft key rules as §5). Records recovered from Telegram text carry the fields the message showed (company, title, location, score, CPT, sponsorship, apply URL); the rest take defaults and `match.reason` says so.
+Imports are idempotent (same fingerprint/external id/soft key rules as §6). Records recovered from Telegram text carry the fields the message showed (company, title, location, score, CPT, sponsorship, apply URL); the rest take defaults and `match.reason` says so.
 
-## 11. Delivery outbox (Telegram)
+## 12. Delivery outbox (Telegram)
 
 Every stored record carries `delivery.telegram = { status, retry_count, message_id?, sent_at?, error?, retry_after?, next_retry_at }` with status `pending | sending | sent | rate_limited | failed`. Saving the record always comes first; Telegram success never decides whether a job exists.
+
+Ingest responses report this persisted state exactly. They never claim `sent` while the outbox is still pending or sending.
 
 - New record: `pending`, first send due after a 60 s grace so the request that created it sends it immediately and nobody double-sends.
 - Failure: `rate_limited` honours Telegram's `retry_after`; `failed` backs off 1, 2, 4... up to 60 min; after 6 attempts it stops (`next_retry_at: null`).
@@ -498,7 +561,7 @@ Every stored record carries `delivery.telegram = { status, retry_count, message_
 - Backfills (`notify:false` in the body or `?notify=0`) are created as `sent`, so they are never posted to Telegram. Records stored before the outbox existed have no `delivery` field and are treated as already sent.
 - Relay (`~/code/gate-telegram-relay`): `api/gate.js` saves, sends, reports; it also drains up to 3 queued items per request. `api/retry.js` drains on demand and from a daily Vercel cron. Optional `GATE_INGEST_TOKEN` requires `Authorization: Bearer` on `/api/gate`; `CRON_SECRET` protects `/api/retry`.
 
-## 12. Hosting
+## 13. Hosting
 
 The API runs as a Vercel function: `npm run build:vercel -w @job-hunt-os/api` bundles `apps/api/src/vercel.ts` into `deploy/vercel-api/` (one file, no install step); `cd deploy/vercel-api && vercel deploy --prod` publishes it as project `job-hunt-os-api`. Production env: `MONGODB_URI`, `AGENT_API_KEY`, `DESKTOP_SYNC_KEY` (Vercel Sensitive). Public address: `https://job-hunt-os-api.vercel.app`. Local development is unchanged (`npm run dev:api`). Atlas must allow Vercel's addresses (Network Access 0.0.0.0/0 with strong credentials, since Vercel has no fixed IPs).
 

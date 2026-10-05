@@ -25,6 +25,7 @@ let current: ((auto?: boolean) => Promise<void>) | null = null;
 export const workspaceSyncNow = () => current?.(false);
 
 const BATCH = 300;
+const REQUEST_TIMEOUT_MS = 20_000;
 /** The server refused our credentials (401) or is throttling this address (429); retrying the same request would only make it worse. */
 class AuthError extends Error {}
 class ThrottleError extends Error {}
@@ -42,41 +43,71 @@ export function useWorkspaceSyncRunner() {
 
   const post = useCallback(async (changes: WsChange[]) => {
     const c = readSyncConfig();
-    const res = await fetch(`${apiBase(c)}/v1/desktop/workspace/sync`, { method: "POST", headers: { ...authHeaders(c), "Content-Type": "application/json" }, body: JSON.stringify({ since: meta.current.since, changes }) });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${apiBase(c)}/v1/desktop/workspace/sync`, { method: "POST", headers: { ...authHeaders(c), "Content-Type": "application/json" }, body: JSON.stringify({ since: meta.current.since, cursor_id: meta.current.cursorId, changes }), signal: controller.signal });
+    } catch (e) {
+      if (controller.signal.aborted) throw new Error("Workspace sync timed out. Check your connection and try again.");
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
     if (res.status === 401) throw new AuthError("Your session has expired. Please sign in again.");
     if (res.status === 429) throw new ThrottleError("Too many attempts from this network. Waiting a minute before trying again.");
     if (!res.ok) throw new Error(`Server returned ${res.status}.`);
-    return (await res.json()) as { next: string; more: boolean; changes: WsChange[] };
+    return (await res.json()) as { next: string; next_id?: string; more: boolean; changes: WsChange[] };
   }, []);
 
   /** Merges what the server sent. The edit scan runs first so a change you just made is never overwritten by an older remote copy. */
-  const take = useCallback((body: { next: string; changes: WsChange[] }, scanFirst = true) => {
+  const take = useCallback((body: { next: string; next_id?: string; changes: WsChange[] }, scanFirst = true) => {
     act.replaceWorkspace((d) => { if (scanFirst) scan(d, meta.current); return applyRemote(d, body.changes, meta.current).data; });
     dataRef.current = act.snapshot();
+    // Legacy servers already move `next` back by 1 ms. Moving it back again here repeats the same page forever.
     meta.current.since = body.next;
+    meta.current.cursorId = body.next_id;
   }, [act]);
 
   /** Uploads pending edits and downloads anything new, until both are drained. */
   const exchange = useCallback(async () => {
     for (let round = 0; round < 60; round++) {
       scan(dataRef.current, meta.current);
-      const pending = Object.entries(meta.current.items).filter(([, e]) => e.p).slice(0, BATCH);
+      const candidates = Object.entries(meta.current.items).filter(([, e]) => e.p).slice(0, BATCH);
       const snap = snapshot(dataRef.current);
-      const changes: WsChange[] = pending.map(([key, e]) => {
+      const pending: typeof candidates = [];
+      const changes: WsChange[] = [];
+      let requestBytes = 100;
+      for (const entry of candidates) {
+        const [key, e] = entry;
         const [col, ...rest] = key.split(":"); const id = rest.join(":");
-        return e.d ? { c: col as WsChange["c"], id, u: e.u, deleted: true } : { c: col as WsChange["c"], id, u: e.u, doc: snap.get(key)!.doc };
-      });
+        const change: WsChange = e.d ? { c: col as WsChange["c"], id, u: e.u, deleted: true } : { c: col as WsChange["c"], id, u: e.u, doc: snap.get(key)!.doc };
+        const bytes = JSON.stringify(change).length + 1;
+        if (changes.length && requestBytes + bytes > 3_000_000) break;
+        pending.push(entry); changes.push(change); requestBytes += bytes;
+      }
+      const before = `${meta.current.since}|${meta.current.cursorId ?? ""}`;
       const body = await post(changes);
       // an item edited while the request was in flight keeps its pending flag (its stamp moved on)
       for (const [key, e] of pending) { const now = meta.current.items[key]; if (now && now.u === e.u && now.h === e.h) now.p = false; }
       take(body);
       if (!body.more && !Object.values(meta.current.items).some((e) => e.p)) return;
+      if (body.more && `${meta.current.since}|${meta.current.cursorId ?? ""}` === before) throw new Error("Workspace sync could not advance past one page. Please retry after the server update completes.");
     }
+    throw new Error("Workspace sync did not finish within the safety limit. Please retry.");
   }, [post, take]);
 
   /** First run on this device: download everything, fold in any old on-device copy, and only then show the app. */
   const initialLoad = useCallback(async () => {
-    for (let page = 0; page < 400; page++) { const body = await post([]); take(body, false); if (!body.more) break; }
+    let drained = false;
+    for (let page = 0; page < 400; page++) {
+      const before = `${meta.current.since}|${meta.current.cursorId ?? ""}`;
+      const body = await post([]);
+      take(body, false);
+      if (!body.more) { drained = true; break; }
+      if (`${meta.current.since}|${meta.current.cursorId ?? ""}` === before) throw new Error("Workspace sync could not advance past one page. Please retry after the server update completes.");
+    }
+    if (!drained) throw new Error("Workspace download exceeded the safety limit. Please retry.");
     if (hasLegacy()) {
       const legacy = readLegacyData();
       if (legacy) {
@@ -128,4 +159,3 @@ export function useWorkspaceSyncRunner() {
   // pick up changes made on other devices
   useEffect(() => { const id = setInterval(() => void run(), Math.max(30, readSyncConfig().intervalSec) * 1000); const on = () => void run(); window.addEventListener("focus", on); return () => { clearInterval(id); window.removeEventListener("focus", on); }; }, [run]);
 }
-

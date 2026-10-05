@@ -6,6 +6,8 @@ import { registerLogoUrls, registerWebsites } from "./logo";
 import { deleteFile, putFile } from "./filedb";
 import { uid } from "./format";
 import { approve, ingest, isOpen, SAMPLE_GATE_IDS, setStatus, type IngestItem, type IngestSummary } from "./gate";
+import { syncEmails } from "./emailSync";
+import { acknowledgeOutlook, syncOutlookMailbox } from "./outlookSync";
 import { parseGatePayload, type GateStatus } from "@job-hunt-os/contracts";
 
 const extOf = (name: string) => (name.includes(".") ? name.split(".").pop()!.toUpperCase() : "FILE");
@@ -32,11 +34,22 @@ function makeActions(set: (fn: (d: AppData) => AppData) => void, get: () => AppD
       return job;
     },
     updateJob: (id: string, patch: Partial<Job>) => set((d) => ({ ...d, jobs: d.jobs.map((j) => (j.id === id ? { ...j, ...patch } : j)) })),
-    moveJob(id: string, status: Status) {
+    moveJob(id: string, status: Status, opts?: { assessmentKind?: import("./types").AssessmentKind }) {
       set((d) => {
         const job = d.jobs.find((j) => j.id === id);
-        if (!job || job.status === status) return d;
-        const patch: Partial<Job> = { status, dueLabel: status === "applied" ? "Applied" : status === "offer" ? "Offer" : status === "interviewing" ? (job.dueLabel ?? "Interview") : job.dueLabel, dueAt: status === "applied" || status === "offer" ? Date.now() : job.dueAt };
+        if (!job || job.status === status) {
+          // allow updating assessmentKind even if status unchanged (e.g. OA -> take_home refinement)
+          if (job && status === "assessment" && opts?.assessmentKind && job.assessmentKind !== opts.assessmentKind) {
+            return { ...d, jobs: d.jobs.map((j) => (j.id === id ? { ...j, assessmentKind: opts.assessmentKind! } : j)) };
+          }
+          return d;
+        }
+        const patch: Partial<Job> = {
+          status,
+          assessmentKind: status === "assessment" ? (opts?.assessmentKind ?? job.assessmentKind ?? "other") : job.assessmentKind,
+          dueLabel: status === "applied" ? "Applied" : status === "assessment" ? "Assessment" : status === "offer" ? "Offer" : status === "interviewing" ? (job.dueLabel ?? "Interview") : job.dueLabel,
+          dueAt: status === "applied" || status === "assessment" || status === "offer" ? Date.now() : job.dueAt,
+        };
         return log({ ...d, jobs: d.jobs.map((j) => (j.id === id ? { ...j, ...patch } : j)) }, status === "applied" ? "doc" : "spark", `Moved to ${status.replace("_", " ")}`, `${job.company} · ${job.role}`);
       });
     },
@@ -167,9 +180,25 @@ function makeActions(set: (fn: (d: AppData) => AppData) => void, get: () => AppD
       return res.job;
     },
     removeGate: (id: string) => set((d) => ({ ...d, gate: d.gate.filter((g) => g.id !== id) })),
+    /** Retrieves server-queued Inbox metadata, then classifies and applies changes locally. */
+    async syncOutlookEmails(opts?: { messages?: import("./emailSync").EmailMessage[] }): Promise<import("./emailSync").EmailSyncResult> {
+      const batch = opts?.messages ? { messages: opts.messages } : await syncOutlookMailbox();
+      const res = await syncEmails(get(), { messages: batch.messages });
+      set(() => res.data);
+      const ids = batch.messages.map((m) => m.id).filter(Boolean);
+      if (ids.length) await acknowledgeOutlook(ids);
+      return res.result;
+    },
 
     // settings
-    updateSettings: <K extends keyof Settings>(section: K, patch: Partial<Settings[K]>) => set((d) => ({ ...d, settings: { ...d.settings, [section]: { ...(d.settings[section] as object), ...(patch as object) } } })),
+    updateSettings: <K extends keyof Settings>(section: K, patch: Partial<Settings[K]>) =>
+      set((d) => ({
+        ...d,
+        settings: {
+          ...d.settings,
+          [section]: { ...((d.settings[section] as unknown as object) ?? {}), ...(patch as unknown as object) } as Settings[K],
+        },
+      })),
     resetDemo: () => set((d) => ({ ...seed(), vault: d.vault })),
     /** Replace all state with an imported export (shape-validated). Returns false when the JSON is not a valid export. */
     importData(json: unknown): boolean {

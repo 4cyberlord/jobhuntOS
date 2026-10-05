@@ -1,0 +1,7 @@
+{
+  "name": "gate-candidate-processor",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs" },
+  "dependencies": { "pg": "^8.16.3" }
+}

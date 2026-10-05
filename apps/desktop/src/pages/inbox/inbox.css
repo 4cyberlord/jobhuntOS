@@ -66,7 +66,7 @@
 .ibx-match .co { color: var(--text-2); font-size: calc(13.5px * var(--fs, 1)); }
 .ibx-pay { text-align: center; display: grid; gap: 8px; justify-items: center; font-weight: 600; font-size: calc(13.5px * var(--fs, 1)); }
 .ibx-score { background: var(--green-soft); color: var(--green); border-radius: 8px; padding: 4px 14px; font-size: calc(12.5px * var(--fs, 1)); font-weight: 600; }
-.ibx-match-btns { display: grid; gap: 8px; width: 112px; }
+.ibx-match-btns { display: grid; gap: 12px; width: 112px; }
 .ibx-match-btns .btn { height: 32px; font-size: calc(12.5px * var(--fs, 1)); }
 .ibx-match-btns .btn svg { width: 15px; height: 15px; }
 .ibx-match-btns .saved { color: var(--green); }
@@ -110,8 +110,9 @@
 .ibx-rf svg { width: 16px; height: 16px; color: var(--muted); }
 .ibx-rf span { color: var(--text-2); }
 .ibx-rf em { font-style: normal; color: var(--muted); text-align: right; overflow-wrap: anywhere; }
-.ibx-act { display: grid; gap: 9px; }
-.ibx-act div { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: calc(12.5px * var(--fs, 1)); }
+.ibx-act { display: grid; gap: 8px; padding-bottom: 4px; }
+.ibx-act div { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: calc(12.5px * var(--fs, 1)); }
+.ibx-act div:last-child { border-bottom: 0; }
 .ibx-act svg { width: 15px; height: 15px; color: var(--purple); }
 .ibx-act span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ibx-act em { font-style: normal; color: var(--muted); }

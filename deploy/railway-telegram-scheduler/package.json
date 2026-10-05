@@ -1,0 +1,6 @@
+{
+  "name": "gate-telegram-outbox-scheduler",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node scheduler.mjs", "test": "node --test test/*.test.mjs" }
+}

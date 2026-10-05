@@ -107,6 +107,27 @@ describe("normalizeIncoming", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.envelope.source.provider).toBe("ashby");
   });
+  it("preserves the former rich Railway v1 opportunity instead of reducing it to a relay card", () => {
+    const rich = {
+      event: "gate.opportunity.discovered", schema_version: "1.0",
+      original_posting_snapshot: { canonical_url: "https://jobs.lever.co/immuta/abc", provider: "Lever", official_employer_ats: true, captured_at: "2026-10-04T13:42:00-05:00", posting_status: "open", content_hash: "sha256:immuta", raw_description: "Build product experiences, APIs, and backend systems." },
+      company: { name: "Immuta", website: "https://www.immuta.com" },
+      opportunity: { title: "Full-Stack Engineering Internship - Summer 2027", normalized_title: "Software Engineering Intern", track: "Full-Stack Engineering", season: "Summer 2027", employment_type: "internship", description_summary: "Build production software.", location: { city: "Columbus", state: "OH", country: "US", work_arrangement: "Hybrid" }, responsibilities: ["Build APIs", "Review code"], expected_outcomes: ["Ship production-quality software"], requirements: { required_skills: [{ name: "TypeScript", status: "stated", confidence: .98 }], preferred_skills: [{ name: "AI", status: "stated" }], technologies: ["TypeScript", "Node.js"] }, compensation: { min: 25, max: 30, currency: "USD", period: "hour" }, eligibility: { f1: { status: "unknown" }, cpt: { status: "unknown" }, sponsorship: { status: "unknown" } }, application: { status: "open", apply_url: "https://jobs.lever.co/immuta/abc" } },
+      structured_facts: { confidence: .98 }, match: { score: 98, technical_fit: { summary: "Excellent full-stack fit." }, already_satisfies: [{ requirement: "TypeScript", evidence: "Projects" }], missing: [], unknown: [] }, metadata: { fingerprint: "sha256:immuta" },
+    };
+    const r = normalizeIncoming(rich);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.envelope).toMatchObject({ opportunity: { track: "full_stack", work_arrangement: "hybrid", location: { city: "Columbus" } }, compensation: { min: 25, max: 30 }, original_posting: { raw_description: "Build product experiences, APIs, and backend systems." } });
+    expect(r.envelope.structured_facts?.responsibilities.map((x) => x.value)).toEqual(["Build APIs", "Review code"]);
+    expect(r.envelope.structured_facts?.required_skills.map((x) => x.skill)).toEqual(["TypeScript"]);
+    expect(r.envelope.gate_assessment?.recommended_next_action ?? null).toBeNull();
+  });
+  it("rejects a malformed rich v1 record instead of falling through to the slim relay adapter", () => {
+    const r = normalizeIncoming({ original_posting_snapshot: { canonical_url: "not-a-url" }, company: { name: "Immuta" }, opportunity: { title: "Intern" } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("rich v1 requires");
+  });
   it("rejects garbage without throwing", () => {
     expect(normalizeIncoming(null).ok).toBe(false);
     expect(normalizeIncoming({ hello: "world" }).ok).toBe(false);

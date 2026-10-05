@@ -20,3 +20,4 @@ target/
 *.password
 .tauri/
 .claude/
+apps/desktop/src-tauri/binaries/tectonic

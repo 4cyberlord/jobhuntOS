@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import mammoth from "mammoth";
 import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, DocumentIcon } from "@heroicons/react/24/outline";
 import type { DocItem, Settings } from "../../lib/types";
@@ -20,13 +20,21 @@ export function Viewer({ doc, profile, full, onFull, onOpen }: { doc: DocItem; p
 
   useEffect(() => { setPage(0); setZoom(1); }, [doc.id, doc.currentVersion]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = stage.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const next = el.clientWidth;
+        setW((current) => Math.abs(current - next) > 1 ? next : current);
+      });
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
+    measure();
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); };
   }, []);
 
   useEffect(() => {
