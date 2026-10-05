@@ -14,6 +14,24 @@ const degreeLabel = (education: Record<string, unknown>) => {
   return degrees.length ? degrees.slice(0, 2).join(" / ") : undefined;
 };
 
+/** The canonical record stores skills as rich evidence objects. Older records
+ * often only contain technologies or a technical stack, so use those strictly
+ * as fallbacks rather than leaving otherwise useful cards blank. */
+const skillLabel = (value: unknown) => {
+  if (typeof value === "string") return text(value);
+  if (!value || typeof value !== "object") return undefined;
+  const item = value as Record<string, unknown>;
+  return text(item.skill) ?? text(item.name) ?? text(item.value);
+};
+export const cardSkills = (facts: Record<string, unknown>) => {
+  const required = Array.isArray(facts.required_skills) ? facts.required_skills.map(skillLabel).filter((x): x is string => !!x) : [];
+  const technologies = Array.isArray(facts.technologies) ? facts.technologies.map(skillLabel).filter((x): x is string => !!x) : [];
+  const stack = facts.technical_stack && typeof facts.technical_stack === "object"
+    ? Object.values(facts.technical_stack as Record<string, unknown>).flatMap((value) => Array.isArray(value) ? value.map(skillLabel).filter((x): x is string => !!x) : [])
+    : [];
+  return [...new Set((required.length ? required : technologies.length ? technologies : stack).map((x) => x.trim()))];
+};
+
 export function GateCard({ g, active, onClick }: { g: GateOpportunity; active: boolean; onClick: () => void }) {
   const rawE = (g?.envelope ?? {}) as unknown as Record<string, unknown>;
   const e = rawE as unknown as GateOpportunity["envelope"];
@@ -22,7 +40,9 @@ export function GateCard({ g, active, onClick }: { g: GateOpportunity; active: b
   const pay = (() => { try { return payText(e); } catch { return "—"; } })();
   const level = (() => { try { return fitLevelFor(e); } catch { return "low" as ReturnType<typeof fitLevelFor>; } })();
   const perfect = (() => { try { return isPerfectFit(e); } catch { return false; } })();
-  const workArr = (rawE.opportunity as Record<string, unknown> | undefined)?.work_arrangement as string | undefined;
+  const opportunity = (rawE.opportunity ?? {}) as Record<string, unknown>;
+  const location = (opportunity.location ?? {}) as Record<string, unknown>;
+  const workArr = text(location.work_arrangement) ?? text(opportunity.work_arrangement);
   const mode = workArr ? MODE[workArr] : undefined;
   const place = (() => { try { return locationText(e); } catch { return "—"; } })();
   const safeCompanyName = typeof (rawE.company as Record<string, unknown> | undefined)?.name === "string" ? (rawE.company as Record<string, unknown>).name as string : "Unknown";
@@ -33,17 +53,12 @@ export function GateCard({ g, active, onClick }: { g: GateOpportunity; active: b
   const companyLogo = (rawE.company as Record<string, unknown> | undefined)?.logo_url as string | undefined;
   const applyUrl = (rawE.opportunity as unknown as { application?: { apply_url?: string } })?.application?.apply_url;
   const sourceOfficial = !!(rawE.source as Record<string, unknown> | undefined)?.official;
-  const opportunity = (rawE.opportunity ?? {}) as Record<string, unknown>;
-  const location = (opportunity.location ?? {}) as Record<string, unknown>;
   const facts = (rawE.structured_facts ?? {}) as Record<string, unknown>;
   const education = (facts.education ?? {}) as Record<string, unknown>;
   const employment = text(opportunity.employment_type);
   const officeDays = typeof location.office_days_per_week === "number" && Number.isFinite(location.office_days_per_week) ? location.office_days_per_week : undefined;
   const degree = degreeLabel(education);
-  const technologies = Array.isArray(facts.technologies) ? facts.technologies.flatMap((item) => {
-    const tech = text(item);
-    return tech ? [tech] : [];
-  }) : [];
+  const technologies = cardSkills(facts);
   const roleFacts = [
     employment ? titleCase(employment) : undefined,
     officeDays !== undefined ? `Onsite ${officeDays} day${officeDays === 1 ? "" : "s"}` : undefined,
