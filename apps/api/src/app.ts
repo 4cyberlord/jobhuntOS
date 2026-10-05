@@ -5,9 +5,22 @@ import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUS
 import { timingSafeEqual } from "node:crypto";
 import { verifyPassword } from "./auth.js";
 import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
-import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile } from "./repository.js";
+import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
+import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
+import { importGateBridge } from "./gate-bridge.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
+
+const legacyGateResult = (r: GateIngestResult) => ({ gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, ...(r.discarded ? { discarded: true } : {}), ...(r.existing_job_id ? { existing_job_id: r.existing_job_id } : {}) });
+export function gateIngestView(r: GateIngestResult, includeOpportunity: boolean) {
+  const legacy = legacyGateResult(r);
+  const stored = { ok: !r.discarded, gate_opportunity_id: r.gate_opportunity_id, fingerprint: r.fingerprint ?? null, duplicate: r.duplicate, gate_status: r.gate_status, ...(r.discarded ? { discarded: true } : {}) };
+  const delivery = {
+    telegram: r.telegram ? { ...r.telegram } : { status: r.discarded ? "skipped" : "unknown" },
+    desktop: { status: r.discarded ? "unavailable" : "available" },
+  };
+  return { legacy, stored, delivery, ...(includeOpportunity && r.opportunity ? { opportunity: r.opportunity } : {}) };
+}
 
 /** Builds the API without listening, so it can run as a local server or inside a serverless function. */
 export async function buildApp() {
@@ -27,6 +40,8 @@ export async function buildApp() {
   const ROLES: [string, (token: string | undefined) => Promise<boolean>, boolean][] = [["/v1/agent", agentKeyOk, true], ["/v1/desktop", sessionValid, false]];
   const bearer = (request: FastifyRequest) => request.headers.authorization?.replace(/^Bearer\s+/i, "");
   app.addHook("onRequest", async (request, reply) => {
+    // Microsoft redirects to this one endpoint without our desktop session; its opaque, one-use OAuth state is the authorization.
+    if (request.url.startsWith("/v1/desktop/outlook/callback")) return;
     const role = ROLES.find(([prefix]) => request.url.startsWith(prefix));
     if (!role || request.method === "OPTIONS") return;
     const [, check, blockFirst] = role;
@@ -36,6 +51,11 @@ export async function buildApp() {
     await recordAuthFailure(request.ip); return reply.code(401).send({ error: "unauthorized" });
   });
   app.addHook("onSend", async (_request, reply) => { reply.header("Cache-Control", "no-store"); });
+  app.addHook("onRequest", async (request, reply) => {
+    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import")) return;
+    const expected = request.url.startsWith("/v1/internal/gate-bridge/import") ? process.env.GATE_BRIDGE_CRON_SECRET : process.env.CRON_SECRET;
+    if (!sameKey(request.headers.authorization?.replace(/^Bearer\s+/i, ""), expected)) return reply.code(401).send({ error: "unauthorized" });
+  });
   // Sign-in for the desktop app: the owner's email + password (stored as a salted hash in the database) buy a session token.
   const loginBody = z.object({ email: z.string().max(200), password: z.string().min(1).max(200), keep: z.boolean().optional() });
   app.post("/v1/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -48,6 +68,36 @@ export async function buildApp() {
     const passwordOk = verifyPassword(body.data.password, owner.passwordHash); // both checks always run
     if (!(emailOk && passwordOk)) { await recordAuthFailure(request.ip); return reply.code(401).send({ error: "incorrect email or password" }); }
     return { syncKey: await createSession(body.data.keep === false ? 1 : 90) };
+  });
+  // Outlook is deliberately server-owned: the desktop receives only queued message metadata, never Graph OAuth tokens.
+  app.get("/v1/desktop/outlook/status", async () => outlookStatus());
+  app.post("/v1/desktop/outlook/authorize", async (_request, reply) => {
+    try { return await beginOutlookAuthorization(); } catch (e) { return reply.code(503).send({ error: e instanceof Error ? e.message : "Outlook is unavailable." }); }
+  });
+  app.get("/v1/desktop/outlook/callback", async (request, reply) => {
+    const q = request.query as { code?: string; state?: string; error?: string; error_description?: string };
+    try {
+      if (q.error || !q.code || !q.state) throw new Error(q.error_description ?? q.error ?? "Microsoft did not complete authorization.");
+      await completeOutlookAuthorization(q.code, q.state);
+      return reply.type("text/html").send("<!doctype html><title>Outlook connected</title><body style='font-family:system-ui;padding:3rem'><h1>Outlook connected</h1><p>You can close this window and return to Job Hunt OS.</p></body>");
+    } catch (e) { return reply.code(400).type("text/html").send(`<!doctype html><title>Outlook connection failed</title><body style='font-family:system-ui;padding:3rem'><h1>Outlook connection failed</h1><p>${String(e instanceof Error ? e.message : e).replace(/</g, "&lt;")}</p></body>`); }
+  });
+  app.post("/v1/desktop/outlook/sync", async (_request, reply) => {
+    try { const poll = await pollOutlookInbox(); return { ...poll, messages: await queuedOutlookMessages() }; } catch (e) { await markOutlookSyncError(e); return reply.code(502).send({ error: e instanceof Error ? e.message : "Outlook sync failed." }); }
+  });
+  app.post("/v1/desktop/outlook/ack", async (request, reply) => {
+    const body = z.object({ ids: z.array(z.string().min(1).max(500)).max(100) }).safeParse(request.body);
+    if (!body.success) return reply.code(422).send({ error: "invalid acknowledgement" });
+    await acknowledgeOutlookMessages(body.data.ids); return { ok: true };
+  });
+  app.delete("/v1/desktop/outlook", async () => { await disconnectOutlook(); return { ok: true }; });
+  app.post("/v1/internal/outlook/sync", async (_request, reply) => {
+    try { return await pollOutlookInbox(); } catch (e) { await markOutlookSyncError(e); return reply.code(502).send({ error: e instanceof Error ? e.message : "Outlook sync failed." }); }
+  });
+  // Cloudflare invokes this every minute. The desktop never sees bridge URLs or credentials.
+  app.post("/v1/internal/gate-bridge/import", async (_request, reply) => {
+    try { return await importGateBridge(); }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Bridge import failed." }); }
   });
   // App updates from a private GitHub repo (see updates.ts). The token lives in the database and never leaves the server.
   const GH = "https://api.github.com";
@@ -88,21 +138,36 @@ export async function buildApp() {
   async function handleGateIngest(request: FastifyRequest, reply: FastifyReply) {
     if (containsSensitiveKey(request.body)) return reply.code(400).send({ error: "sensitive fields are forbidden" });
     const parsed = parseGatePayload(request.body);
-    if (!parsed.ok) return reply.code(422).send({ error: "invalid payload", details: parsed.error });
-    const results = []; const summary = { received: parsed.items.length, created: 0, duplicates: 0, discarded: 0 };
-    for (const item of parsed.items) {
+    if (!parsed.ok) {
+      request.log.warn({ gateValidation: parsed.error, schemaVersion: (request.body as { schema_version?: unknown } | null)?.schema_version }, "GATE payload rejected");
+      if (parsed.isBatch && parsed.errors) return reply.code(422).send({
+        success: false, partial: false, error: "invalid payload", details: parsed.error,
+        results: parsed.errors.map((e) => ({ ok: false, index: e.index, error: e.error })),
+        summary: { received: parsed.received ?? parsed.errors.length, valid: 0, invalid: parsed.errors.length, created: 0, duplicates: 0, discarded: 0 },
+      });
+      return reply.code(422).send({ error: "invalid payload", details: parsed.error });
+    }
+    const results: Record<string, unknown>[] = [];
+    let singleView: ReturnType<typeof gateIngestView> | undefined;
+    const summary = { received: parsed.received, valid: parsed.items.length, invalid: parsed.errors.length, created: 0, duplicates: 0, discarded: 0 };
+    for (const { index, item } of parsed.indexedItems) {
       const r = await ingestGate(item);
       if (r.discarded) summary.discarded++; else if (r.duplicate) summary.duplicates++; else summary.created++;
-      results.push({ gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, ...(r.discarded ? { discarded: true } : {}), ...(r.existing_job_id ? { existing_job_id: r.existing_job_id } : {}) });
+      const view = gateIngestView(r, false);
+      if (!parsed.isBatch) singleView = gateIngestView(r, true);
+      results.push({ ok: true, index, ...view.legacy, stored: view.stored, delivery: view.delivery });
     }
+    results.push(...parsed.errors.map((e) => ({ ok: false, index: e.index, error: e.error })));
+    results.sort((a, b) => Number(a.index) - Number(b.index));
     const code = summary.created ? 201 : 200;
-    const isBatch = Array.isArray((request.body as { results?: unknown })?.results);
-    return reply.code(code).send(isBatch ? { success: true, results, summary } : { success: true, result: results[0] });
+    if (parsed.isBatch) return reply.code(code).send({ success: parsed.errors.length === 0, ...(parsed.errors.length ? { partial: true } : {}), results, summary });
+    return reply.code(code).send({ success: true, result: singleView!.legacy, stored: singleView!.stored, delivery: singleView!.delivery, ...(singleView!.opportunity ? { opportunity: singleView!.opportunity } : {}) });
   }
-  app.post("/v1/agent/gate/opportunities", handleGateIngest);
-  app.post("/v1/agent/gate/opportunities/batch", handleGateIngest);
+  // GATE 2.x can include a bounded original-posting snapshot; stay below common serverless 4.5 MB request limits.
+  app.post("/v1/agent/gate/opportunities", { bodyLimit: 4 * 1024 * 1024 }, handleGateIngest);
+  app.post("/v1/agent/gate/opportunities/batch", { bodyLimit: 4 * 1024 * 1024 }, handleGateIngest);
   // Relay-era payloads (Railway worker / Vercel relay / Telegram backfill): normalized into full envelopes, then stored like any discovery.
-  app.post("/v1/agent/gate/legacy", async (request, reply) => {
+  app.post("/v1/agent/gate/legacy", { bodyLimit: 4 * 1024 * 1024 }, async (request, reply) => {
     if (containsSensitiveKey(request.body)) return reply.code(400).send({ error: "sensitive fields are forbidden" });
     const body = request.body as unknown;
     // notify:false (body or ?notify=0) marks Telegram as already delivered, so backfills are never re-sent
@@ -117,7 +182,7 @@ export async function buildApp() {
       const r = await ingestGate(n.envelope, { telegramDelivered: notify === false });
       if (r.duplicate) summary.duplicates++; else summary.created++;
       if (r.created && list.length === 1) await Promise.race([enrichCompanyById(r.gate_opportunity_id), new Promise((res) => setTimeout(res, 6000))]).catch(() => undefined);
-    results.push({ ok: true, gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, telegram_status: r.telegram_status });
+    results.push({ ok: true, gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, telegram_status: r.telegram?.status });
     }
     return reply.code(summary.created ? 201 : 200).send({ success: summary.invalid < list.length, results, summary });
   });
@@ -126,11 +191,12 @@ export async function buildApp() {
   app.post("/v1/agent/gate/deliveries/claim", async (request) => { const limit = Math.min(20, Math.max(1, Number((request.body as { limit?: number })?.limit ?? 5))); return { items: await claimPendingDeliveries(limit) }; });
   app.post("/v1/agent/gate/enrich", async (request) => { const b = request.body as { limit?: number; force?: boolean } | undefined; return enrichPending(Math.min(9, Math.max(1, Number(b?.limit ?? 6))), b?.force === true); });
   app.get("/v1/agent/gate/decisions", async () => gateDecisions());
-  app.get("/v1/desktop/gate/opportunities", async (request, reply) => { const since = (request.query as { since?: string }).since; if (since && Number.isNaN(Date.parse(since))) return reply.code(422).send({ error: "since must be an ISO date" }); return { items: await gateForDesktop(since) }; });
+  app.get("/v1/desktop/gate/opportunities", async (request, reply) => { const q = request.query as { since?: string; after_id?: string }; if (q.since && Number.isNaN(Date.parse(q.since))) return reply.code(422).send({ error: "since must be an ISO date" }); return gateForDesktop(q.since, q.after_id); });
   const gateStatusBody = z.object({ gate_status: z.enum(GATE_STATUSES), linked_job_id: z.string().max(100).optional() });
   app.post("/v1/desktop/gate/:id/status", async (request, reply) => { const body = gateStatusBody.safeParse(request.body); if (!body.success) return reply.code(422).send({ error: "invalid payload", details: body.error.flatten() }); const ok = await setGateStatus((request.params as { id: string }).id, body.data.gate_status, body.data.linked_job_id); return ok ? reply.send({ success: true }) : reply.code(404).send({ error: "not found" }); });
   const workspaceBody = z.object({
     since: z.string().datetime().default("1970-01-01T00:00:00.000Z"),
+    cursor_id: z.string().max(300).optional(),
     changes: z.array(z.object({ c: z.enum(WORKSPACE_COLLECTIONS), id: z.string().min(1).max(120), u: z.number().int().positive(), deleted: z.boolean().optional(), doc: z.record(z.string(), z.unknown()).optional() })).max(300).default([]),
   });
   app.post("/v1/desktop/workspace/sync", { bodyLimit: 4 * 1024 * 1024 }, async (request, reply) => {
@@ -139,7 +205,7 @@ export async function buildApp() {
     if (body.data.changes.some((ch) => !ch.deleted && !ch.doc)) return reply.code(422).send({ error: "a change needs a doc unless it is a deletion" });
     // Sealed vault entries (AES-GCM ciphertext) and the vault's salt/verifier legitimately use words like "secret", so only they are exempt from the key check.
     if (body.data.changes.some((ch) => ch.c !== "credentials" && ch.c !== "vault" && containsSensitiveKey(ch.doc))) return reply.code(400).send({ error: "sensitive fields are forbidden" });
-    return workspaceSync(body.data.changes, body.data.since);
+    return workspaceSync(body.data.changes, body.data.since, body.data.cursor_id);
   });
 
   // Document files, in chunks (each request stays under the serverless body cap)

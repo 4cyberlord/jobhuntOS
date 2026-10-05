@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
 [triggers]
-crons = ["*/30 * * * *"]
+crons = ["*/30 * * * *", "* * * * *"]
 
 [[kv_namespaces]]
 binding = "GATE_STATUS"
@@ -25,7 +25,8 @@ max_batch_timeout = 30
 max_retries = 5
 
 [vars]
-GATE_API_URL = "https://job-hunt-os-api.vercel.app"
+RAILWAY_BRIDGE_URL = "https://gate-delivery-v3.up.railway.app"
+GATE_IMPORT_URL = "https://job-hunt-os-api.vercel.app/v1/internal/gate-bridge/import"
 WATCH_ID = "summer-2027-swe-internships"
 SEASON = "Summer 2027"
 COUNTRY = "US"

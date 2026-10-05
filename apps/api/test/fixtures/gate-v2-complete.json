@@ -1,0 +1,359 @@
+{
+  "event": "gate.opportunity.discovered",
+  "schema_version": "2.0",
+  "identity": {
+    "gate_opportunity_id": null,
+    "fingerprint": "doordash-software-engineer-intern-summer-2027-us-8171041",
+    "external_job_id": "8171041",
+    "is_duplicate": false,
+    "duplicate_of": null,
+    "record_type": "new"
+  },
+  "search": {
+    "watch_id": "summer-2027-internship-watch",
+    "season": "Summer 2027",
+    "country": "United States",
+    "searched_at": "2026-10-03T20:45:00-05:00"
+  },
+  "original_posting": {
+    "canonical_url": "https://careersatdoordash.com/jobs/software-engineer-intern-summer-2027---us/8171041/",
+    "source_url": "https://careersatdoordash.com/jobs/software-engineer-intern-summer-2027---us/8171041/",
+    "source_provider": "DoorDash Careers",
+    "official_source": true,
+    "captured_at": "2026-10-03T20:45:00-05:00",
+    "posting_status": "open",
+    "content_hash": "sha256:example-hash",
+    "raw_title": "Software Engineer, Intern (Summer 2027) - US",
+    "raw_location": "New York, San Francisco, Sunnyvale, Los Angeles, Seattle",
+    "raw_description": "FULL ORIGINAL JOB POSTING TEXT HERE",
+    "snapshot_version": 1
+  },
+  "company": {
+    "name": "DoorDash",
+    "website": "https://www.doordash.com/",
+    "careers_url": "https://careersatdoordash.com/",
+    "logo_url": "https://verified-official-logo-url.svg",
+    "industry": "Technology / Logistics",
+    "headquarters": "San Francisco, CA"
+  },
+  "opportunity": {
+    "title": "Software Engineer, Intern (Summer 2027) - US",
+    "normalized_title": "Software Engineer Intern",
+    "track": "software_engineering",
+    "employment_type": "internship",
+    "season": "Summer 2027",
+    "team": {
+      "name": null,
+      "department": "Engineering",
+      "product": null,
+      "reports_to": null
+    },
+    "location": {
+      "cities": [
+        "New York",
+        "San Francisco",
+        "Sunnyvale",
+        "Los Angeles",
+        "Seattle"
+      ],
+      "states": [
+        "NY",
+        "CA",
+        "WA"
+      ],
+      "country": "United States",
+      "work_arrangement": "in_person",
+      "office_days_per_week": null,
+      "timezone_requirements": null,
+      "location_restrictions": [],
+      "travel_required": null,
+      "travel_percent": null,
+      "relocation_required": null
+    },
+    "internship": {
+      "start_date": null,
+      "end_date": null,
+      "duration_weeks": 12,
+      "weekly_hours": null,
+      "schedule": "Full-time",
+      "return_offer_possible": null
+    },
+    "application": {
+      "status": "open",
+      "posted_at": null,
+      "posted_at_note": "Not stated",
+      "posted_at_provenance": "unknown",
+      "posted_at_confidence": 0,
+      "deadline": null,
+      "deadline_note": "Not stated",
+      "deadline_provenance": "unknown",
+      "deadline_confidence": 0,
+      "apply_url": "https://careersatdoordash.com/jobs/software-engineer-intern-summer-2027---us/8171041/",
+      "materials": {
+        "resume": true,
+        "cover_letter": null,
+        "transcript": null,
+        "portfolio": null,
+        "references": null,
+        "assessment": null,
+        "coding_sample": null,
+        "other": []
+      },
+      "questions_or_instructions": []
+    }
+  },
+  "structured_facts": {
+    "responsibilities": [
+      {
+        "value": "Build and contribute to production software systems.",
+        "provenance": "stated",
+        "confidence": 1,
+        "evidence": "Relevant excerpt from the employer posting"
+      }
+    ],
+    "expected_outcomes": [],
+    "required_skills": [
+      {
+        "skill": "Python or Java",
+        "provenance": "stated",
+        "confidence": 1,
+        "evidence": "Relevant employer wording"
+      },
+      {
+        "skill": "Software engineering fundamentals",
+        "provenance": "stated",
+        "confidence": 1,
+        "evidence": "Relevant employer wording"
+      }
+    ],
+    "preferred_skills": [
+      {
+        "skill": "AWS",
+        "provenance": "inferred",
+        "confidence": 0.75,
+        "evidence": "Technology alignment based on role description"
+      }
+    ],
+    "technologies": [
+      "Python",
+      "Java",
+      "AWS",
+      "SQL"
+    ],
+    "experience_requirements": {
+      "minimum_years": null,
+      "internship_experience_required": null,
+      "prior_software_engineering_experience": true
+    },
+    "education": {
+      "degree_required": "Bachelor's",
+      "degree_fields": [
+        "Computer Science",
+        "Computer Engineering",
+        "Related technical field"
+      ],
+      "gpa_minimum": null,
+      "graduation_date_min": "2027-12-01",
+      "graduation_date_max": "2028-08-31",
+      "must_be_currently_enrolled": true
+    },
+    "compensation": {
+      "available": true,
+      "min": null,
+      "max": null,
+      "currency": "USD",
+      "period": "hour",
+      "bonus": null,
+      "equity": null,
+      "benefits": [],
+      "housing_assistance": null,
+      "relocation_assistance": null,
+      "transportation_assistance": null
+    },
+    "eligibility": {
+      "citizenship_required": {
+        "value": false,
+        "provenance": "stated",
+        "confidence": 1,
+        "evidence": null
+      },
+      "us_person_required": {
+        "value": false,
+        "provenance": "unknown",
+        "confidence": 0,
+        "evidence": null
+      },
+      "f1": {
+        "status": "eligible",
+        "provenance": "stated",
+        "confidence": 1,
+        "evidence": "F-1 students are eligible when using CPT."
+      },
+      "cpt": {
+        "status": "allowed",
+        "provenance": "stated",
+        "confidence": 1,
+        "evidence": "F-1 students are eligible when using CPT."
+      },
+      "opt": {
+        "status": "unknown",
+        "provenance": "unknown",
+        "confidence": 0,
+        "evidence": null
+      },
+      "sponsorship": {
+        "internship": "unknown",
+        "future": "unknown",
+        "provenance": "unknown",
+        "confidence": 0,
+        "evidence": null
+      },
+      "export_control": {
+        "restricted": false,
+        "details": null,
+        "provenance": "unknown"
+      },
+      "exact_work_authorization_language": [
+        "F-1 students are eligible when using CPT."
+      ]
+    },
+    "hiring_process": {
+      "recruiter_screen": null,
+      "technical_assessment": null,
+      "technical_interview": null,
+      "behavioral_interview": null,
+      "final_interview": null,
+      "stages": [],
+      "expected_timeline": null
+    },
+    "contacts": []
+  },
+  "gate_assessment": {
+    "match": {
+      "score": 99,
+      "level": "strong",
+      "technical_fit": 98,
+      "eligibility_fit": 100,
+      "experience_fit": 96,
+      "education_fit": 100
+    },
+    "satisfies": [
+      {
+        "requirement": "Computer Science student",
+        "profile_evidence": "B.S. Computer Science, Fisk University, expected May 2028",
+        "confidence": 1
+      },
+      {
+        "requirement": "Python or Java",
+        "profile_evidence": "Charles lists both Python and Java in his technical stack",
+        "confidence": 1
+      },
+      {
+        "requirement": "Database experience",
+        "profile_evidence": "PostgreSQL, PostGIS, MySQL, Redis and Firebase experience",
+        "confidence": 1
+      },
+      {
+        "requirement": "Backend/API engineering",
+        "profile_evidence": "Laravel, Node.js, REST APIs and production full-stack projects",
+        "confidence": 1
+      }
+    ],
+    "missing": [],
+    "unknown": [
+      {
+        "field": "future_sponsorship",
+        "reason": "Future sponsorship policy was not clearly stated",
+        "manual_confirmation_needed": true
+      },
+      {
+        "field": "application_deadline",
+        "reason": "No exact deadline was published",
+        "manual_confirmation_needed": false
+      }
+    ],
+    "supporting_resume_experience": [
+      {
+        "project_or_role": "Ghana National Addressing & Geospatial Registry",
+        "supports": [
+          "backend engineering",
+          "PostgreSQL/PostGIS",
+          "REST APIs",
+          "Docker",
+          "cloud infrastructure"
+        ]
+      },
+      {
+        "project_or_role": "RyyHub E-commerce",
+        "supports": [
+          "production software development",
+          "Laravel",
+          "Flutter",
+          "API development"
+        ]
+      }
+    ],
+    "recommended_resume": {
+      "version": "backend-software-engineering",
+      "emphasis": [
+        "Python",
+        "Java",
+        "APIs",
+        "PostgreSQL",
+        "AWS",
+        "backend systems",
+        "production software"
+      ]
+    },
+    "recommended_next_action": "Apply as soon as practical using the backend/software-engineering resume version.",
+    "urgency": "high",
+    "urgency_reason": "Strong fit and application is currently open with no published fixed deadline.",
+    "eligibility_risk": "low",
+    "eligibility_risk_reason": "The posting explicitly allows F-1 students using CPT.",
+    "assessment_confidence": 0.98
+  },
+  "source": {
+    "first_seen_at": "2026-10-03T20:45:00-05:00",
+    "last_verified_at": "2026-10-03T20:45:00-05:00",
+    "source_quality": "official",
+    "verification_status": "verified",
+    "evidence_urls": [
+      "https://careersatdoordash.com/jobs/software-engineer-intern-summer-2027---us/8171041/"
+    ]
+  },
+  "risk": {
+    "scam_score": 0,
+    "scam_flags": [],
+    "domain_matches_company": true,
+    "suspicious_redirects": false,
+    "stale_posting": false
+  },
+  "change_history": [
+    {
+      "detected_at": "2026-10-03T20:45:00-05:00",
+      "change_type": "initial_capture",
+      "fields_changed": [],
+      "summary": "Initial GATE capture."
+    }
+  ],
+  "agent": {
+    "name": "GATE Scout",
+    "agent_type": "job_discovery",
+    "decision": "surface",
+    "confidence": 0.98,
+    "flags": [
+      "strong_match",
+      "graduation_exact_match",
+      "cpt_confirmed",
+      "official_source"
+    ]
+  },
+  "metadata": {
+    "gate_status": "discovered",
+    "discovered_at": "2026-10-03T20:45:00-05:00",
+    "user_action_required": true,
+    "telegram_status": "pending",
+    "desktop_sync_status": "pending"
+  }
+}
+

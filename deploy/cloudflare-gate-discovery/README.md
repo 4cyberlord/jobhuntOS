@@ -1,6 +1,8 @@
 # GATE Cloudflare Discovery Pipeline
 
-This is the production discovery path. A Cloudflare cron runs every 30 minutes, searches official ATS URLs with Tavily, and places compact URL metadata on a Cloudflare Queue. The Queue consumer fetches the official posting, records compact delivery state in D1, and posts the complete source-derived GATE 2.x envelope directly to Job Hunt OS.
+This Worker has two schedules: discovery runs every 30 minutes, while a separate one-minute trigger asks the Job Hunt OS API to import ready records from the Railway bridge. The trigger never contacts Railway/Postgres itself.
+
+The source-only Queue consumer stores each complete record in the Railway bridge before Job Hunt OS imports it. It never sends a discovered record directly to MongoDB.
 
 ```text
 Cloudflare cron → Tavily → Queue → source-only processor → D1 journal
@@ -19,10 +21,13 @@ Cloudflare cron → Tavily → Queue → source-only processor → D1 journal
 
 ```bash
 npx wrangler secret put TAVILY_API_KEY --name gate-discovery
-npx wrangler secret put AGENT_API_KEY --name gate-discovery
+npx wrangler secret put RAILWAY_DELIVERY_TOKEN --name gate-discovery
+npx wrangler secret put GATE_BRIDGE_CRON_SECRET --name gate-discovery
 ```
 
 `RUN_TOKEN` is an optional operator-only secret for `POST /internal/run`, useful for controlled acceptance testing. Cron runs do not use it.
+
+`GATE_BRIDGE_CRON_SECRET` must exactly match the server-only API environment value. `GATE_INGEST_TOKEN` remains only on Job Hunt OS and the Railway bridge; Cloudflare receives only the separate delivery token used to persist a discovery record.
 
 ## Manual candidate ingestion
 
