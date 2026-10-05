@@ -76,7 +76,29 @@ async function completeRecord(candidate: Candidate, posting: Posting, env: Env) 
   };
 }
 async function search(env: Env, query: string): Promise<Candidate[]> { const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ api_key: env.TAVILY_API_KEY, query, search_depth: "basic", max_results: 5, topic: "general", include_answer: false }) }); if (!response.ok) throw new Error(`tavily_http_${response.status}`); const body = await response.json() as { results?: Array<{ url?: string; title?: string }> }; return (body.results ?? []).flatMap((row) => row.url && candidateUrl(row.url) ? [{ url: canonicalUrl(row.url), title: row.title, source: "tavily" as const, discovered_at: new Date().toISOString() }] : []); }
-async function discover(env: Env) { const seen = new Set<string>(); let found = 0, queued = 0, failed = 0; await lifecycle(env, { phase: "discovery_started", season: env.SEASON, query_count: queries.length }).catch(() => undefined); for (const query of queries) try { for (const candidate of await search(env, query)) { found++; if (seen.has(candidate.url)) continue; seen.add(candidate.url); await env.CANDIDATES.send(candidate); queued++; } } catch { failed++; } const result = { watch: env.WATCH_ID, last_run: new Date().toISOString(), candidate_urls_found: found, queued, failed }; await env.GATE_STATUS.put("latest", JSON.stringify(result), { expirationTtl: 60 * 60 * 24 * 14 }); await lifecycle(env, { phase: "discovery_finished", candidates_found: found, queued, failed }).catch(() => undefined); return result; }
+async function discover(env: Env) {
+  const seen = new Set<string>();
+  let found = 0, queued = 0, alreadyKnown = 0, failed = 0;
+  await lifecycle(env, { phase: "discovery_started", season: env.SEASON, query_count: queries.length }).catch(() => undefined);
+  for (const query of queries) try {
+    for (const candidate of await search(env, query)) {
+      found++;
+      if (seen.has(candidate.url)) { alreadyKnown++; continue; }
+      seen.add(candidate.url);
+      const key = await sha256(candidate.url);
+      const existing = await env.GATE_JOURNAL.prepare("SELECT state FROM gate_journal WHERE url_hash = ?").bind(key).first<{ state: string }>();
+      // Only genuinely unseen URLs enter the research queue. Retriable failures
+      // are recovered by recoverRetryingCandidates(), not rediscovered here.
+      if (existing) { alreadyKnown++; continue; }
+      await env.CANDIDATES.send(candidate);
+      queued++;
+    }
+  } catch { failed++; }
+  const result = { watch: env.WATCH_ID, last_run: new Date().toISOString(), candidate_urls_found: found, queued, already_known: alreadyKnown, failed };
+  await env.GATE_STATUS.put("latest", JSON.stringify(result), { expirationTtl: 60 * 60 * 24 * 14 });
+  await lifecycle(env, { phase: "discovery_finished", candidates_found: found, queued, already_known: alreadyKnown, failed }).catch(() => undefined);
+  return result;
+}
 /** Calls Job Hunt OS, never Railway/Postgres. Job Hunt OS owns claim/persist/ACK. */
 async function importBridge(env: Env) { const response = await fetch(env.GATE_IMPORT_URL, { method: "POST", headers: { authorization: `Bearer ${env.GATE_BRIDGE_CRON_SECRET}` } }); if (!response.ok) throw new Error(`gate_bridge_import_${response.status}`); return response.json() as Promise<unknown>; }
 /** Queue retries are finite; the D1 journal is the durable recovery source. */
