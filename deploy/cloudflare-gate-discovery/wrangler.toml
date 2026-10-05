@@ -27,6 +27,7 @@ max_retries = 5
 [vars]
 RAILWAY_BRIDGE_URL = "https://gate-delivery-v3.up.railway.app"
 GATE_IMPORT_URL = "https://job-hunt-os-api.vercel.app/v1/internal/gate-bridge/import"
+LIFECYCLE_RELAY_URL = "https://gate-telegram-relay.vercel.app/api/event"
 WATCH_ID = "summer-2027-swe-internships"
 SEASON = "Summer 2027"
 COUNTRY = "US"

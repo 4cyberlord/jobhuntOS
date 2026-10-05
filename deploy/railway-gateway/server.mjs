@@ -11,6 +11,13 @@ const send = (res, code, body) => { res.writeHead(code, { "content-type": "appli
 const bearer = (req) => /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1];
 const deliveryAuthorized = (req) => secureEqual(bearer(req) ?? req.headers["x-delivery-token"], process.env.DELIVERY_TOKEN);
 const bridgeAuthorized = (req) => secureEqual(bearer(req), process.env.GATE_INGEST_TOKEN);
+const lifecycle = (phase, fields) => {
+  const url = process.env.LIFECYCLE_RELAY_URL, token = process.env.LIFECYCLE_EVENT_TOKEN;
+  if (!url || !token) return;
+  void fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ phase, ...fields }), signal: AbortSignal.timeout(5000) })
+    .then((response) => { if (!response.ok) console.warn(`lifecycle relay HTTP ${response.status}`); })
+    .catch((error) => console.warn("lifecycle relay unavailable", error instanceof Error ? error.message : error));
+};
 const bodyOf = async (req) => { const chunks = []; let size = 0; for await (const chunk of req) { size += chunk.length; if (size > 4 * 1024 * 1024) throw new Error("Payload too large"); chunks.push(chunk); } return JSON.parse(Buffer.concat(chunks).toString("utf8")); };
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://railway.local"), path = url.pathname;
@@ -48,6 +55,7 @@ const server = http.createServer(async (req, res) => {
     if (invalid) return send(res, 422, { error: invalid });
     const queued = await enqueue(pool, record);
     console.log(`accepted queue_id=${queued.id} fingerprint=${queued.fingerprint}`);
+    lifecycle("stored_in_railway", { company: record.company?.name, role: record.opportunity?.title });
     return send(res, 202, { ok: true, accepted: true, queue_id: queued.id, fingerprint: queued.fingerprint, status: "ready" });
   } catch (error) { const message = error instanceof Error ? error.message : "invalid request"; return send(res, message === "Payload too large" ? 413 : 400, { error: message.slice(0, 300) }); }
 });
