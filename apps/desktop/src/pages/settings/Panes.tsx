@@ -213,10 +213,10 @@ function GateConnection() {
   return (
     <div className="set-note" style={{ marginTop: 14 }}>
       <b>GATE Scout connection</b>
-      <p style={{ margin: "4px 0 12px", color: "var(--muted)" }}>Pull discovered opportunities from your Job Hunt OS API into the GATE Inbox and report Approve / Dismiss decisions back. The same connection also keeps your jobs, companies, contacts, calendar, tasks, notifications, agent inbox and profile in step across devices (the credential vault, document files and appearance stay on this device). Uses the desktop sync key (DESKTOP_SYNC_KEY), never the agent key. The key is stored only on this Mac and is excluded from exports.</p>
+      <p style={{ margin: "4px 0 12px", color: "var(--muted)" }}>Pull discovered opportunities from your Job Hunt OS API into the GATE Inbox and report Approve / Dismiss decisions back. The same connection also keeps your jobs, companies, contacts, calendar, tasks, notifications, agent inbox and profile in step across devices (the credential vault, document files and appearance stay on this device). Uses the desktop session token created at sign-in, never the agent key. The token is stored only on this Mac and is excluded from exports.</p>
       <div className="form-grid">
         <Field label="API URL"><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.example.com" /></Field>
-        <Field label="Desktop sync key"><input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="DESKTOP_SYNC_KEY" autoComplete="off" /></Field>
+        <Field label="Desktop session token"><input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Created when you sign in" autoComplete="off" /></Field>
         <Field label="Check every (seconds)"><input type="number" min={30} value={every} onChange={(e) => setEvery(e.target.value)} /></Field>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
