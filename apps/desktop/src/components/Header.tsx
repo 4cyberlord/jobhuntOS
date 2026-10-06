@@ -9,6 +9,7 @@ const PLACEHOLDER: Record<Route, string> = {
   kanban: "Search jobs, companies...",
   opportunities: "Search opportunities...",
   companies: "Search companies...",
+  "company-intelligence": "Search monitored companies, career sources, ATS providers...",
   contacts: "Search contacts...",
   calendar: "Search events, jobs, companies...",
   documents: "Search documents, files, or content...",
@@ -20,7 +21,7 @@ const PLACEHOLDER: Record<Route, string> = {
   settings: "Search settings, account, notifications...",
 };
 /** routes whose page filters its own list by the header query; others get a global results dropdown */
-const SCOPED = new Set<Route>(["opportunities", "kanban", "companies", "contacts", "calendar", "documents", "vault", "gate", "inbox", "notifications", "settings"]);
+const SCOPED = new Set<Route>(["opportunities", "kanban", "companies", "company-intelligence", "contacts", "calendar", "documents", "vault", "gate", "inbox", "notifications", "settings"]);
 
 export function initials(name: string) {
   return (() => { const p = name.split(/\s+/).filter(Boolean); return ((p[0]?.[0] ?? "") + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase() || "?"; })();
