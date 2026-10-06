@@ -15,13 +15,11 @@ type CompanyUpsertResult = { ok: true; company: IntelligenceCompany; created?: b
 type SourceUpsertResult = { ok: true; source: Record<string, unknown>; created?: boolean; previous_verification_status?: string | null };
 
 function base() {
-  const url = process.env.COMPANY_INTELLIGENCE_API_URL?.replace(/\/+$/, "");
-  if (!url) throw new Error("COMPANY_INTELLIGENCE_API_URL is not configured.");
-  return url;
+  return (process.env.COMPANY_INTELLIGENCE_API_URL || "https://jobhunt-company-intelligence-api.onrender.com").replace(/\/+$/, "");
 }
 function token() {
-  const value = process.env.COMPANY_INTELLIGENCE_WRITE_TOKEN;
-  if (!value) throw new Error("COMPANY_INTELLIGENCE_WRITE_TOKEN is not configured.");
+  const value = process.env.VERCEL_OIDC_TOKEN || process.env.COMPANY_INTELLIGENCE_WRITE_TOKEN;
+  if (!value) throw new Error("Company Intelligence write authentication is unavailable.");
   return value;
 }
 export async function notifyCompanyIntelligenceLifecycle(phase: string, fields: Record<string, unknown>) {
@@ -41,7 +39,7 @@ async function readJson<T>(r: Response): Promise<T> {
   return body as T;
 }
 export function companyIntelligenceConfigured() {
-  return !!process.env.COMPANY_INTELLIGENCE_API_URL;
+  return true;
 }
 export async function companyIntelligenceView() {
   const r = await fetch(`${base()}/v1/company-intelligence`, { headers: { "user-agent": "job-hunt-os-api/1.0" } });
