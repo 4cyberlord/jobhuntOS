@@ -36,6 +36,7 @@ const base = (c: SyncConfig) => c.apiUrl.replace(/\/+$/, "");
 export function useGateSyncRunner() {
   const { data, act } = useData();
   const busy = useRef(false);
+  const retry = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pushed = useRef<Map<string, string>>(new Map(data.gate.map((g) => [g.id, g.gateStatus])));
 
   const pull = useCallback(async () => {
@@ -43,6 +44,7 @@ export function useGateSyncRunner() {
     if (!configured(c)) return setStatus({ state: "off" });
     if (busy.current) return;
     busy.current = true;
+    clearTimeout(retry.current);
     setStatus({ ...status, state: "syncing" });
     try {
       // Cursor sync: ask for everything changed since the last item we processed. Unlike the server's one-shot "delivered"
@@ -71,7 +73,11 @@ export function useGateSyncRunner() {
       if (skipped) throw new Error(`${skipped} item${skipped === 1 ? "" : "s"} could not be read (${reason}).`);
       setStatus({ state: "idle", lastAt: Date.now(), lastCount: created });
     } catch (e) {
-      setStatus({ state: "error", lastAt: status.lastAt, error: e instanceof Error ? e.message : "Sync failed." });
+      const error = e instanceof Error ? e.message : "Sync failed.";
+      setStatus({ state: "error", lastAt: status.lastAt, error });
+      // A stale desktop session needs the user to sign in again. Other failures
+      // are commonly a short deployment/network interruption and recover on their own.
+      if (!/\b401\b/.test(error)) retry.current = setTimeout(() => void pull(), 15_000);
     } finally {
       busy.current = false;
     }
@@ -84,7 +90,7 @@ export function useGateSyncRunner() {
     const id = setInterval(run, Math.max(30, readSyncConfig().intervalSec) * 1000);
     const on = () => run();
     subs.add(on);
-    return () => { clearInterval(id); subs.delete(on); };
+    return () => { clearInterval(id); clearTimeout(retry.current); subs.delete(on); };
   }, [pull]);
 
   // report decisions made in the app back to the server (best effort)

@@ -19,18 +19,20 @@ describe("Railway GATE bridge importer", () => {
 
   it("claims, persists, and ACKs a complete record in that order", async () => {
     const calls: string[] = [];
+    let ackBody: Record<string, unknown> | undefined;
     const fetcher = async (url: string, init?: RequestInit) => {
       calls.push(`${init?.method ?? "GET"} ${url}`);
       if (url.includes("status=ready")) return ok({ items: [{ id: "queue-1", fingerprint: "sha256:bridge" }] });
       if (url.endsWith("/claim")) return ok({ id: "queue-1", lease_token: "lease-1", envelope });
-      if (url.endsWith("/ack")) return ok({ ok: true, status: "imported" });
+      if (url.endsWith("/ack")) { ackBody = JSON.parse(String(init?.body)); return ok({ ok: true, status: "imported" }); }
       throw new Error("unexpected bridge route");
     };
     const stored = await importGateBridge({ baseUrl: "https://bridge.example", token: "token", fetcher: fetcher as typeof fetch, ingest: async () => {
-      calls.push("MONGO"); return { gate_opportunity_id: "mongo-1", gate_status: "discovered", duplicate: false, created: true, fingerprint: "sha256:bridge" };
+      calls.push("MONGO"); return { gate_opportunity_id: "mongo-1", gate_status: "discovered", duplicate: false, created: true, fingerprint: "sha256:mongo-normalized" };
     } });
     expect(stored).toMatchObject({ listed: 1, claimed: 1, stored: 1, acknowledged: 1 });
     expect(calls).toEqual(["GET https://bridge.example/v1/opportunities?status=ready&limit=20", "POST https://bridge.example/v1/opportunities/queue-1/claim", "MONGO", "POST https://bridge.example/v1/opportunities/queue-1/ack"]);
+    expect(ackBody?.fingerprint).toBe("sha256:bridge");
   });
 
   it("does not ACK an invalid bridge record", async () => {

@@ -1,7 +1,7 @@
 // The connection to your server. This is the only thing kept on the device: the app needs it to find and unlock your data.
 const KEY = "jhos.gate.sync";
 export type SyncConfig = { apiUrl: string; syncKey: string; intervalSec: number };
-// the hosted API; only the sync key (from DESKTOP_SYNC_KEY) has to be entered once
+// The hosted API plus the desktop session token received at sign-in are stored on this device.
 export const DEFAULT_SYNC: SyncConfig = { apiUrl: "https://job-hunt-os-api.vercel.app", syncKey: "", intervalSec: 120 };
 const parse = (store: Storage) => { try { return JSON.parse(store.getItem(KEY) ?? "{}"); } catch { return {}; } };
 export function readSyncConfig(): SyncConfig {

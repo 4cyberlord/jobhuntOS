@@ -17,8 +17,6 @@ export function passes(g: GateOpportunity, f: Filters, now = Date.now()): boolea
     const f1 = (elig.f1 ?? {}) as Record<string, unknown>;
     const source = (e.source ?? {}) as Record<string, unknown>;
     const dl = (() => { try { return deadlineOf(g.envelope); } catch { return undefined; } })();
-    const hours = /^(?:1|2|3|4|5|6|7|8|9|1[0-9]|2[0-4])h$/.exec(f.found);
-    if (hours && (typeof g.receivedAt !== "number" || g.receivedAt < now - Number(hours[0].slice(0, -1)) * 60 * 60 * 1_000)) return false;
     if (f.found === "today" && (typeof g.receivedAt !== "number" || g.receivedAt < startOfDay(now))) return false;
     if (f.found === "7d" && (typeof g.receivedAt !== "number" || g.receivedAt < now - 7 * DAY)) return false;
     if (f.found === "30d" && (typeof g.receivedAt !== "number" || g.receivedAt < now - 30 * DAY)) return false;

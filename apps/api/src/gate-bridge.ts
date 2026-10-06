@@ -53,7 +53,9 @@ export async function importGateBridge(opts: {
     if (stored.duplicate) result.duplicates++;
     const ack = await call(endpoint(baseUrl, `/v1/opportunities/${encodeURIComponent(claimed.id || row.id)}/ack`), {
       method: "POST", headers,
-      body: JSON.stringify({ gate_opportunity_id: stored.gate_opportunity_id, fingerprint: stored.fingerprint ?? claimed.fingerprint ?? row.fingerprint, lease_token: claimed.lease_token }),
+      // Railway verifies its own queue fingerprint. Mongo may normalize it while
+      // ingesting, so using Mongo's fingerprint here can reject an otherwise valid ACK.
+      body: JSON.stringify({ gate_opportunity_id: stored.gate_opportunity_id, fingerprint: claimed.fingerprint ?? row.fingerprint, lease_token: claimed.lease_token }),
     });
     if (!ack.ok) throw new Error(`bridge_ack_${ack.status}:${await text(ack)}`);
     result.acknowledged++;

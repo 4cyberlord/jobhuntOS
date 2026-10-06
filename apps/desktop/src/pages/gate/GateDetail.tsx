@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowPathRoundedSquareIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BookmarkIcon, BriefcaseIcon, CalendarDaysIcon, CheckBadgeIcon, CheckIcon, ChevronRightIcon, DocumentTextIcon, EllipsisHorizontalIcon, ExclamationTriangleIcon, LinkIcon, MapPinIcon, MinusSmallIcon, ShieldCheckIcon, SparklesIcon, TrashIcon, XMarkIcon } from "@heroicons/react/20/solid";
+import { ArrowPathRoundedSquareIcon, ArrowTopRightOnSquareIcon, ArrowUturnLeftIcon, BookmarkIcon, BriefcaseIcon, CalendarDaysIcon, CheckBadgeIcon, CheckIcon, ChevronRightIcon, DocumentTextIcon, EllipsisHorizontalIcon, ExclamationTriangleIcon, LinkIcon, MapPinIcon, MinusSmallIcon, ShieldCheckIcon, SparklesIcon, XMarkIcon } from "@heroicons/react/20/solid";
 import { AcademicCapIcon, BanknotesIcon, GlobeAltIcon, IdentificationIcon, ShieldCheckIcon as ShieldOutline, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 import { RefactorResumeModal } from "./RefactorResumeModal";
 import { DAY, fmtAgo, fmtDate } from "../../lib/format";
@@ -99,10 +99,10 @@ export function GateDetail({ g, similar, onSelectSimilar, onApprove, onDecide, o
   let q: ReturnType<typeof postingQuality> = { level: "Low", bars: 1 };
   try { q = postingQuality(safeG as GateOpportunity); } catch { q = { level: "Low", bars: 1 }; }
   const warnings = (flags as string[]).filter((f) => WARN_FLAGS.has(f) && f !== "deadline_soon");
-  const [menu, setMenu] = useState(false), [tab, setTab] = useState<DetailTab>("overview"), [refactorOpen, setRefactorOpen] = useState(false), [applyStarted, setApplyStarted] = useState(false);
+  const [menu, setMenu] = useState(false), [tab, setTab] = useState<DetailTab>("overview"), [refactorOpen, setRefactorOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null), scroller = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setTab("overview"); setApplyStarted(false); scroller.current?.scrollTo({ top: 0 }); setMenu(false); }, [safeG.id]);
+  useEffect(() => { setTab("overview"); scroller.current?.scrollTo({ top: 0 }); setMenu(false); }, [safeG.id]);
   useEffect(() => {
     if (!menu) return;
     const off = (ev: Event) => { if (ev instanceof globalThis.KeyboardEvent ? ev.key === "Escape" : !menuRef.current?.contains(ev.target as Node)) setMenu(false); };
@@ -173,14 +173,11 @@ export function GateDetail({ g, similar, onSelectSimilar, onApprove, onDecide, o
   const canOpenWebsite = !!safeCompanyWebsite;
   const canOpenCareers = !!safeCompanyCareers;
   const copy = async () => { if (!apply) return; try { await navigator.clipboard.writeText(apply); onCopied(); } catch { /* unavailable */ } setMenu(false); };
-  const openApply = () => { if (apply) { setApplyStarted(true); void openExternal(apply); } };
+  const openApply = () => { if (apply) void openExternal(apply); };
   const openSource = () => { if (safeSourceUrl) { void openExternal(safeSourceUrl); setMenu(false); } };
   const openWebsite = () => { if (safeCompanyWebsite) void openExternal(safeCompanyWebsite); };
   const openCareers = () => { if (safeCompanyCareers) void openExternal(safeCompanyCareers); };
   const isOpenStatus = (() => { try { return isOpen(safeG as GateOpportunity); } catch { return safeGateStatus === "discovered" || safeGateStatus === "reviewing"; } })();
-  const canBookmark = isOpenStatus || safeGateStatus === "saved_for_later";
-  const canConfirmPipeline = applyStarted && (isOpenStatus || safeGateStatus === "saved_for_later");
-  const showFooter = canConfirmPipeline || safeGateStatus === "approved" || ["dismissed", "expired", "duplicate"].includes(safeGateStatus);
 
   return (
     <>
@@ -190,14 +187,12 @@ export function GateDetail({ g, similar, onSelectSimilar, onApprove, onDecide, o
           <div className="gd-title-head">
             <h2>{safeTitle}</h2>
             <span className={`gd-status st-${safeGateStatus}`}>{STATUS_LABEL[safeGateStatus] ?? pretty(safeGateStatus)}</span>
-            {canBookmark ? <button className={`gd-icon-btn ${safeGateStatus === "saved_for_later" ? "on" : ""}`} aria-label={safeGateStatus === "saved_for_later" ? "Return to review" : "Save for later"} title={safeGateStatus === "saved_for_later" ? "Return to review" : "Save for later"} onClick={() => onDecide(safeGateStatus === "saved_for_later" ? "discovered" : "saved_for_later")}><BookmarkIcon /></button> : null}
             <div className="gd-menu" ref={menuRef}>
               <button className="gd-icon-btn" aria-label="More actions" aria-expanded={menu} onClick={() => setMenu((v) => !v)}><EllipsisHorizontalIcon /></button>
               {menu ? <div className="gd-pop" role="menu">
                 <button role="menuitem" onClick={copy} disabled={!canOpenApply}><LinkIcon />Copy apply link</button>
                 <button role="menuitem" onClick={openSource} disabled={!canOpenSource}><ArrowTopRightOnSquareIcon />Open source listing</button>
-                {isOpenStatus || safeGateStatus === "saved_for_later" ? <button role="menuitem" className="danger" onClick={() => { onDecide("dismissed"); setMenu(false); }}><TrashIcon />Delete from inbox</button> : null}
-                {["dismissed", "expired", "duplicate"].includes(safeGateStatus) ? <button role="menuitem" onClick={() => { onDecide("discovered"); setMenu(false); }}><ArrowUturnLeftIcon />Restore to inbox</button> : null}
+                {!isOpenStatus ? <button role="menuitem" onClick={() => { onDecide("discovered"); setMenu(false); }}><ArrowUturnLeftIcon />Restore to inbox</button> : null}
               </div> : null}
             </div>
           </div>
@@ -329,11 +324,14 @@ export function GateDetail({ g, similar, onSelectSimilar, onApprove, onDecide, o
         })}</div> : <div className="gd-similar-empty"><SparklesIcon /><b>No similar opportunities yet</b><p>More matches will appear as GATE discovers related roles.</p></div>}</section> : null}
       </div>
 
-      {showFooter ? <footer className="gd-actions">
-        {canConfirmPipeline ? <><button className="btn primary lg" onClick={onApprove}><CheckIcon />Confirm pipeline</button><small><ShieldOutline />After reviewing the application, confirm to move this opportunity into your pipeline. GATE never submits applications for you.</small></> : null}
+      <footer className="gd-actions">
+        {(isOpenStatus || safeGateStatus === "saved_for_later") ? <button className="btn primary lg" onClick={onApprove}><CheckIcon />Approve to Pipeline</button> : null}
+        {isOpenStatus ? <button className="btn lg" onClick={() => onDecide("saved_for_later")}><BookmarkIcon />Save for later</button> : null}
+        {(isOpenStatus || safeGateStatus === "saved_for_later") ? <button className="btn danger lg" onClick={() => onDecide("dismissed")}><XMarkIcon />Dismiss</button> : null}
         {safeGateStatus === "approved" ? <>{safeG.linkedJobId ? <button className="btn primary lg" onClick={onOpenJob}>View in pipeline</button> : null}<button className="btn lg" onClick={onKanban}>Open Kanban</button></> : null}
         {["dismissed", "expired", "duplicate"].includes(safeGateStatus) ? <button className="btn lg" onClick={() => onDecide("discovered")}><ArrowPathRoundedSquareIcon />Restore to inbox</button> : null}
-      </footer> : null}
+        <span className="gd-sep" /><small><ShieldOutline />Approving adds this to your Saved column. GATE never submits an application for you.</small>
+      </footer>
     </>
   );
 }

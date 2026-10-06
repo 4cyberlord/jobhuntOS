@@ -95,9 +95,12 @@ export async function buildApp() {
     try { return await pollOutlookInbox(); } catch (e) { await markOutlookSyncError(e); return reply.code(502).send({ error: e instanceof Error ? e.message : "Outlook sync failed." }); }
   });
   // Cloudflare invokes this every minute. The desktop never sees bridge URLs or credentials.
-  app.post("/v1/internal/gate-bridge/import", async (_request, reply) => {
+  app.post("/v1/internal/gate-bridge/import", async (request, reply) => {
     try { return await importGateBridge(); }
-    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Bridge import failed." }); }
+    catch (e) {
+      request.log.error({ err: e instanceof Error ? e.message : "Bridge import failed." }, "gate bridge import failed");
+      return reply.code(502).send({ error: e instanceof Error ? e.message : "Bridge import failed." });
+    }
   });
   // App updates from a private GitHub repo (see updates.ts). The token lives in the database and never leaves the server.
   const GH = "https://api.github.com";
