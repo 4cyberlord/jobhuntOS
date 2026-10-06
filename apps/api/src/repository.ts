@@ -183,6 +183,20 @@ export async function workspaceSync(changes: WorkspaceChange[], since: string, c
   };
 }
 
+export async function workspaceCompaniesForIntelligence() {
+  const c = (await database()).collection<{ _id: string; c: string; id: string; u: number; deleted: boolean; doc: Record<string, unknown>; at: Date }>("workspace");
+  return c.find({ c: "companies", deleted: { $ne: true } }, { projection: { id: 1, u: 1, doc: 1 } }).limit(5000).toArray();
+}
+export async function linkWorkspaceCompanyIntelligence(id: string, intelligenceId: string) {
+  const c = (await database()).collection<{ _id: string; c: string; id: string; u: number; deleted: boolean; doc: Record<string, unknown>; at: Date }>("workspace");
+  const row = await c.findOne({ _id: `companies:${id}`, c: "companies", deleted: { $ne: true } });
+  if (!row?.doc) return false;
+  if (row.doc.intelligenceId === intelligenceId) return true;
+  const now = Date.now();
+  await c.updateOne({ _id: row._id }, { $set: { doc: { ...row.doc, intelligenceId }, u: Math.max(Number(row.u || 0) + 1, now), at: new Date() } });
+  return true;
+}
+
 /* ───────── document file storage (chunked: serverless request bodies are capped at ~4.5MB) ───────── */
 import { Binary } from "mongodb";
 export const FILE_CHUNK = 3 * 1024 * 1024;
