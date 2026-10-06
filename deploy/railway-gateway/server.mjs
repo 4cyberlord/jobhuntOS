@@ -67,42 +67,6 @@ const server = http.createServer(async (req, res) => {
   } catch (error) { const message = error instanceof Error ? error.message : "invalid request"; return send(res, message === "Payload too large" ? 413 : 400, { error: message.slice(0, 300) }); }
 });
 const cleanup = setInterval(() => void cleanupImported(pool).then((count) => { if (count) console.log(`cleaned imported=${count}`); }).catch((error) => console.error("bridge cleanup failed", error.message)), 60 * 60_000);
-const runCompanyIntelligenceMigration = async () => {
-  const secret = process.env.COMPANY_INTELLIGENCE_MIGRATION_SECRET;
-  if (!secret) {
-    console.warn("company intelligence migration skipped: COMPANY_INTELLIGENCE_MIGRATION_SECRET unavailable");
-    return;
-  }
-  const endpoint = "https://job-hunt-os-api.vercel.app/v1/internal/company-intelligence/migrate-once";
-  let totalCompanies = 0;
-  let totalGate = 0;
-  for (let pass = 1; pass <= 50; pass++) {
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { authorization: `Bearer ${secret}` },
-        signal: AbortSignal.timeout(55_000),
-      });
-      const result = await response.json().catch(() => ({}));
-      console.log("company_intelligence_migration_pass", JSON.stringify({ pass, status: response.status, ...result }));
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${JSON.stringify(result).slice(0,300)}`);
-      totalCompanies += Number(result.companies_linked ?? 0);
-      totalGate += Number(result.gate_backfilled ?? 0);
-      if (result.complete) {
-        console.log("COMPANY_INTELLIGENCE_MIGRATION_COMPLETE", JSON.stringify({ passes: pass, companies_linked: totalCompanies, gate_backfilled: totalGate }));
-        return;
-      }
-    } catch (error) {
-      console.error("company intelligence migration failed", error instanceof Error ? error.message : String(error));
-      return;
-    }
-  }
-  console.warn("company intelligence migration stopped after max passes", JSON.stringify({ companies_linked: totalCompanies, gate_backfilled: totalGate }));
-};
-
 const port = Number(process.env.PORT || 3000);
-server.listen(port, "0.0.0.0", () => {
-  console.log(`GATE gateway ready port=${port}`);
-  void runCompanyIntelligenceMigration();
-});
+server.listen(port, "0.0.0.0", () => console.log(`GATE gateway ready port=${port}`));
 for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, () => { clearInterval(cleanup); server.close(() => void pool.end().then(() => process.exit(0))); });
