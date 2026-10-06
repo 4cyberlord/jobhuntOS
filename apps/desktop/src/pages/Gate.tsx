@@ -14,12 +14,13 @@ import { FilterSelect } from "./gate/ui";
 import { NO_FILTERS, activeCount, passes, type Filters } from "./gate/filters";
 import "./gate/gate.css";
 
-type Tab = "all" | "review" | "later" | "approved" | "dismissed";
+type Tab = "all" | "review" | "later" | "dismissed";
 const TABS: { id: Tab; label: string; icon?: string; match: (g: GateOpportunity) => boolean }[] = [
-  { id: "all", label: "All", match: () => true },
+  // Approval hands the opportunity to Kanban. Keep its discovery record for
+  // provenance, but do not show it again in the active opportunity inbox.
+  { id: "all", label: "All", match: (g) => g.gateStatus !== "approved" },
   { id: "review", label: "Needs review", match: isOpen },
   { id: "later", label: "Saved for later", match: (g) => g.gateStatus === "saved_for_later" },
-  { id: "approved", label: "Approved", match: (g) => g.gateStatus === "approved" },
   { id: "dismissed", label: "Dismissed", match: (g) => ["dismissed", "expired", "duplicate"].includes(g.gateStatus) },
 ];
 const QUICK: { id: string; label: string }[] = [{ id: "cpt_confirmed", label: "CPT confirmed" }, { id: "sponsorship_available", label: "Sponsorship" }, { id: "remote", label: "Remote" }, { id: "deadline_soon", label: "Deadline soon" }, { id: "official", label: "Official source" }];
@@ -27,7 +28,7 @@ type Sort = "match" | "newest" | "deadline";
 const STAGES = [
   { key: "all" as const, name: "Gather", sub: "New matches", Icon: DocumentTextIcon, tone: "violet" },
   { key: "review" as const, name: "Assess", sub: "Ready to review", Icon: MagnifyingGlassIcon, tone: "blue" },
-  { key: "approved" as const, name: "Track", sub: "In your pipeline", Icon: PaperAirplaneIcon, tone: "indigo" },
+  { key: "" as const, name: "Track", sub: "In your pipeline", Icon: PaperAirplaneIcon, tone: "indigo" },
   { key: "" as const, name: "Execute", sub: "Applied & active", Icon: CheckIcon, tone: "green" },
 ];
 
@@ -112,7 +113,7 @@ export default function Gate() {
 
   const stats = useMemo(() => {
     const linked = data.gate.filter((g) => g.linkedJobId).map((g) => data.jobs.find((j) => j.id === g.linkedJobId)).filter(Boolean);
-    return { all: data.gate.length, review: counts.review, approved: linked.length, "": linked.filter((j) => j && ["applied", "interviewing", "offer"].includes(j.status)).length } as Record<string, number>;
+    return { all: data.gate.filter((g) => g.gateStatus !== "approved").length, review: counts.review, approved: linked.length, "": linked.filter((j) => j && ["applied", "interviewing", "offer"].includes(j.status)).length } as Record<string, number>;
   }, [data.gate, data.jobs, counts.review]);
 
   const next = (id: string) => { const i = list.findIndex((g) => g.id === id); return list[i + 1]?.id ?? list[i - 1]?.id; };
@@ -167,7 +168,7 @@ export default function Gate() {
         <button className={`btn primary g-filters-btn ${nFilters ? "has" : ""}`} onClick={nFilters ? clearAll : undefined} title={nFilters ? "Clear all filters" : "Filters"}>
           <FunnelIcon />{nFilters ? <>Clear filters<em>{nFilters}</em></> : "Filters"}
         </button>
-        <FilterSelect icon={<CalendarDaysIcon />} label="Found" value={filters.found} onChange={set("found")} options={[["any", "Any time"], ["today", "Today"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]]} />
+        <FilterSelect icon={<CalendarDaysIcon />} label="Found" value={filters.found} onChange={set("found")} options={[["any", "Any time"], ["1h", "Last hour"], ["2h", "Last 2 hours"], ["3h", "Last 3 hours"], ["6h", "Last 6 hours"], ["12h", "Last 12 hours"], ["24h", "Last 24 hours"], ["today", "Today"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]]} />
         <FilterSelect icon={<ClockIcon />} label="Deadline" value={filters.deadline} onChange={set("deadline")} options={[["any", "Any"], ["week", "Within 7 days"], ["has", "Has deadline"], ["none", "No deadline"]]} />
         <FilterSelect icon={<MapPinIcon />} label="Location" value={filters.location} onChange={set("location")} options={[["any", "Any"], ["remote", "Remote"], ...states.map((s): [string, string] => [s, s])]} />
         <FilterSelect icon={<BriefcaseIcon />} label="Work mode" value={filters.mode} onChange={set("mode")} options={[["any", "Any"], ["remote", "Remote"], ["hybrid", "Hybrid"], ["onsite", "Onsite"]]} />

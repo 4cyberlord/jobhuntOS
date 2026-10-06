@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownTrayIcon, ArrowPathIcon, ArrowUturnLeftIcon, BuildingOffice2Icon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DocumentDuplicateIcon, DocumentIcon,
-  FolderIcon, LinkIcon, PencilSquareIcon, PlusIcon, ShareIcon, TagIcon, TrashIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowUpTrayIcon, BriefcaseIcon, ComputerDesktopIcon,
+  FolderIcon, LinkIcon, PencilSquareIcon, PlusIcon, TagIcon, TrashIcon, XMarkIcon, ArrowsPointingOutIcon, ArrowUpTrayIcon, BriefcaseIcon, ComputerDesktopIcon,
 } from "@heroicons/react/24/outline";
 import { useData } from "../../lib/store";
 import { useUI } from "../../lib/ui";
@@ -162,7 +162,7 @@ export function Detail({ doc, onFull, onClose }: { doc: DocItem; onFull: () => v
       </div>
 
       <div className="docs-actions">
-        <button className="btn" onClick={() => A.share(doc)}><ShareIcon />Share</button>
+
         <button className="btn" onClick={() => A.download(doc)}><ArrowDownTrayIcon />Download</button>
         <button className="btn" onClick={() => A.duplicate(doc.id)}><DocumentDuplicateIcon />Duplicate</button>
         {doc.trashed ? (

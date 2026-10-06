@@ -28,12 +28,14 @@
 .ins-top button:hover { background: var(--panel-2); }
 .ins-mini { width: 70px; flex: none; }
 .ins-top strong { font-size: calc(13px * var(--fs, 1)); width: 38px; text-align: right; }
-.ins-split { display: flex; height: 16px; border-radius: 8px; overflow: hidden; gap: 2px; margin: 6px 0 12px; }
+.ins-source-card { display: flex; flex-direction: column; }
+.ins-source-card .ins-sub { margin-bottom: auto; }
+.ins-split { display: flex; height: 20px; border-radius: 10px; overflow: hidden; gap: 2px; margin: 16px 0 20px; }
 .ins-split i { display: block; }
-.ins-split-key { display: flex; gap: 18px; flex-wrap: wrap; font-size: calc(13px * var(--fs, 1)); color: var(--text-2); }
-.ins-split-key span { display: inline-flex; align-items: center; gap: 6px; }
-.ins-split-key i { width: 10px; height: 10px; border-radius: 50%; }
-.ins-note { color: var(--muted); font-size: calc(12.5px * var(--fs, 1)); margin-top: 14px; line-height: 1.5; }
+.ins-split-key { display: flex; gap: 24px; flex-wrap: wrap; font-size: calc(13.5px * var(--fs, 1)); color: var(--text-2); margin-bottom: auto; }
+.ins-split-key span { display: inline-flex; align-items: center; gap: 8px; }
+.ins-split-key i { width: 11px; height: 11px; border-radius: 50%; }
+.ins-note { color: var(--muted); font-size: calc(12.5px * var(--fs, 1)); margin-top: 14px; line-height: 1.6; }
 .ins-resumes { list-style: none; margin: 0; padding: 0; display: grid; }
 .ins-resumes li { display: grid; grid-template-columns: minmax(160px, 1.2fr) 2fr 48px 90px; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .ins-resumes li:last-child { border: 0; }
@@ -47,3 +49,12 @@
   .ins-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ins-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Time in stage — spacious card */
+.ins-stage-card { display: flex; flex-direction: column; }
+.ins-stage-list { display: flex; flex-direction: column; flex: 1; }
+.ins-stage-row { flex: 1; display: grid; grid-template-columns: 100px 1fr 40px; align-items: center; gap: 14px; padding: 0 2px; border-bottom: 1px solid var(--line); }
+.ins-stage-row:last-child { border-bottom: 0; }
+.ins-stage-name { font-size: calc(13.5px * var(--fs, 1)); color: var(--text-2); font-weight: 550; }
+.ins-stage-bar { height: 10px; border-radius: 6px; }
+.ins-stage-days { font-size: calc(13.5px * var(--fs, 1)); font-weight: 650; text-align: right; color: var(--text); }

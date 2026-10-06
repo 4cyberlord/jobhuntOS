@@ -29,23 +29,8 @@ export function useDocActions() {
         toast("Couldn't read the file", "warn");
       }
     };
-    const share = async (doc: DocItem) => {
-      try {
-        if (!isTauri() && typeof navigator.share === "function") {
-          const f = await docFile(doc, profile);
-          const file = new File([f.blob], f.fileName, { type: f.blob.type });
-          if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: doc.name }); return; }
-          await navigator.share({ title: doc.name, text: `${doc.name} (${fmtBytes(doc.size)})` });
-          return;
-        }
-        await copyToClipboard(`${doc.name}.${doc.ext.toLowerCase()} · ${fmtBytes(doc.size)} · modified ${fmtDate(doc.modifiedAt)}`);
-        toast("Document details copied to clipboard");
-      } catch (e) {
-        if ((e as Error)?.name !== "AbortError") toast("Sharing isn't available here", "warn");
-      }
-    };
     return {
-      open, download, share,
+      open, download,
       trash: (ids: string[]) => { ids.forEach((id) => act.trashDocument(id, true)); toast(ids.length > 1 ? `${ids.length} documents moved to Trash` : "Moved to Trash"); },
       restore: (ids: string[]) => { ids.forEach((id) => act.trashDocument(id, false)); toast("Restored"); },
       remove: async (ids: string[]) => {

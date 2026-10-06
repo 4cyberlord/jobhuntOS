@@ -3,7 +3,7 @@ import { ArrowPathIcon, BellIcon, CalendarDaysIcon, CheckCircleIcon, ChevronDown
 import { Logo } from "../components/Logo";
 import { useData } from "../lib/store";
 import { useUI } from "../lib/ui";
-import { addDays, fmtRange, fmtShort, fmtTime, fmtWeekday, monthName, sameDay, startOfDay, startOfWeek } from "../lib/format";
+import { DAY, addDays, fmtRange, fmtShort, fmtTime, fmtWeekday, monthName, sameDay, startOfDay, startOfWeek } from "../lib/format";
 import type { CalEvent, EventKind } from "../lib/types";
 import { KINDS, kindMeta } from "./calendar/meta";
 import { EventDetail } from "./calendar/EventDetail";
@@ -96,7 +96,7 @@ export default function Calendar() {
 
   const q = search.trim().toLowerCase();
   const searched = useMemo(() => data.events.filter((e) => !q || e.title.toLowerCase().includes(q) || (e.company ?? "").toLowerCase().includes(q)), [data.events, q]);
-  const inRange = useMemo(() => searched.filter((e) => e.start >= rangeStart && e.start < rangeEnd), [searched, rangeStart, rangeEnd]);
+  const inRange = useMemo(() => searched.filter((e) => e.start < rangeEnd && e.end > rangeStart), [searched, rangeStart, rangeEnd]);
   const counts = useMemo(() => {
     const c: Record<Filter, number> = { all: inRange.length, interview: 0, followup: 0, deadline: 0, assessment: 0, personal: 0 };
     inRange.forEach((e) => c[e.kind]++);
@@ -156,7 +156,9 @@ export default function Calendar() {
   };
 
   const dayCol = (day: number) => {
-    const list = visible.filter((e) => sameDay(e.start, day));
+    const dayEnd = day + DAY;
+    // include events that start on this day OR span into this day
+    const list = visible.filter((e) => e.start < dayEnd && e.end > day);
     return (
       <div className="cal-col" key={day} onClick={(e) => {
         const r = e.currentTarget.getBoundingClientRect();
@@ -192,16 +194,22 @@ export default function Calendar() {
       <div className="cal-m-head">{DOW.map((d) => <span key={d}>{d}</span>)}</div>
       <div className="cal-m-grid">
         {days.map((d) => {
-          const list = visible.filter((e) => sameDay(e.start, d)).sort((a, b) => a.start - b.start);
+          const list = visible.filter((e) => e.start < d + DAY && e.end > d).sort((a, b) => a.start - b.start);
           const other = new Date(d).getMonth() !== new Date(cursor).getMonth();
           return (
             <div key={d} className={`cal-m-cell ${other ? "other" : ""} ${sameDay(d, cursor) ? "cur" : ""}`} onClick={() => { setCursor(d); }} onDoubleClick={() => addAt(d)}>
               <b className={d === today ? "today" : ""}>{new Date(d).getDate()}</b>
-              {list.slice(0, 3).map((ev) => (
-                <button key={ev.id} className={`cal-chipev k-${ev.kind} ${selected?.id === ev.id ? "sel" : ""}`} style={{ ["--k" as string]: kindMeta(ev.kind).color }} onClick={(e) => { e.stopPropagation(); setSelId(ev.id); setCursor(d); }} title={ev.title}>
-                  <i />{fmtTime(ev.start).replace(":00", "")} {ev.company && ev.kind !== "interview" ? `${ev.title} · ${ev.company}` : ev.title}
-                </button>
-              ))}
+              {list.slice(0, 3).map((ev) => {
+                const isContinuation = !sameDay(ev.start, d);
+                const label = isContinuation
+                  ? `→ ${ev.company && ev.kind !== "interview" ? `${ev.title} · ${ev.company}` : ev.title}`
+                  : `${fmtTime(ev.start).replace(":00", "")} ${ev.company && ev.kind !== "interview" ? `${ev.title} · ${ev.company}` : ev.title}`;
+                return (
+                  <button key={ev.id} className={`cal-chipev k-${ev.kind} ${selected?.id === ev.id ? "sel" : ""}`} style={{ ["--k" as string]: kindMeta(ev.kind).color }} onClick={(e) => { e.stopPropagation(); setSelId(ev.id); setCursor(d); }} title={ev.title}>
+                    <i />{label}
+                  </button>
+                );
+              })}
               {list.length > 3 && <button className="cal-more" onClick={(e) => { e.stopPropagation(); setCursor(d); setView("day"); }}>+{list.length - 3} more</button>}
             </div>
           );

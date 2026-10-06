@@ -139,13 +139,23 @@ export default function Insights() {
               <Bars color="var(--purple)" unit="%" rows={m.tracks.map((t) => ({ key: t.t, label: `${t.t} (${t.n})`, value: t.s, max: 100 }))} />
             </section>
 
-            <section className="card ins-card">
+            <section className="card ins-card ins-stage-card">
               <h2>Time in stage</h2>
               <p className="ins-sub">Average days since the last movement</p>
-              <Bars color="var(--amber)" rows={m.stageTime.map((s) => ({ key: s.s, label: <span className="ins-cap">{s.s}</span>, value: s.d, max: maxStage, note: s.n ? `${s.d}d` : "—" }))} />
+              <div className="ins-stage-list">
+                {m.stageTime.map((s) => (
+                  <div key={s.s} className="ins-stage-row">
+                    <span className="ins-cap ins-stage-name">{s.s}</span>
+                    <span className="ins-bar-track ins-stage-bar">
+                      <i style={{ width: s.n ? `${Math.max(4, (s.d / Math.max(maxStage, 1)) * 100)}%` : "0%", background: "var(--amber)" }} />
+                    </span>
+                    <b className="ins-stage-days">{s.n ? `${s.d}d` : "—"}</b>
+                  </div>
+                ))}
+              </div>
             </section>
 
-            <section className="card ins-card">
+            <section className="card ins-card ins-source-card">
               <h2>Source split</h2>
               <p className="ins-sub">Jobs found by your agent vs. added manually</p>
               <div className="ins-split" role="img" aria-label={`${m.agent.length} agent, ${m.manual.length} manual`}>

@@ -7,6 +7,7 @@ import { Logo } from "../components/Logo";
 import { StatusPill } from "../components/ui";
 import { cardDate, fitOf, matchesQuery, stageLabel } from "./kanban/helpers";
 import { getOutlookStatus } from "../lib/outlookSync";
+import { lastTouch } from "./dashboard/metrics";
 import "./kanban/kanban.css";
 
 type MenuState = { job: Job; x: number; y: number } | null;
@@ -61,7 +62,11 @@ export default function Kanban() {
   const pool = useMemo(() => data.jobs.filter((j) => pipeline.has(j.status)), [data.jobs, pipeline]);
   const tracks = useMemo(() => [...new Set(pool.map((j) => j.track))].sort(), [pool]);
   const modes = useMemo(() => [...new Set(pool.map((j) => j.workMode))].sort(), [pool]);
-  const filtered = useMemo(() => pool.filter((j) => (!track || j.track === track) && (!mode || j.workMode === mode) && (!status || j.status === status) && matchesQuery(j, search)), [pool, track, mode, status, search]);
+  const filtered = useMemo(() => {
+    const arr = pool.filter((j) => (!track || j.track === track) && (!mode || j.workMode === mode) && (!status || j.status === status) && matchesQuery(j, search));
+    const touches = new Map(arr.map((j) => [j.id, lastTouch(data, j)]));
+    return arr.sort((a, b) => touches.get(b.id)! - touches.get(a.id)!);
+  }, [pool, track, mode, status, search, data]);
   const filtering = !!(track || mode || status || search);
   const cols = PIPELINE.filter((c) => !status || c.status === status);
 

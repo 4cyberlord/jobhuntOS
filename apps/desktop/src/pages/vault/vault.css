@@ -132,13 +132,13 @@
 .vlt-auth-ico svg { width: 21px; height: 21px; }
 .vlt-info { display: flex; gap: 7px; align-items: center; color: var(--muted); font-size: calc(12.5px * var(--fs, 1)); }
 .vlt-info svg { width: 16px; height: 16px; flex: none; }
-.vlt-minis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vlt-minis { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .vlt-rel { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 6px 0; text-align: left; }
 .vlt-rel i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex: none; }
 .vlt-rel span { display: grid; flex: 1; min-width: 0; font-size: calc(12.5px * var(--fs, 1)); }
 .vlt-rel b { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vlt-rel small, .vlt-tl small { color: var(--muted); font-size: calc(12px * var(--fs, 1)); }
-.vlt-rel .pill { font-size: calc(11px * var(--fs, 1)); padding: 3px 8px; }
+.vlt-rel .pill { font-size: calc(10px * var(--fs, 1)); padding: 2px 6px; flex: none; }
 .vlt-tl { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
 .vlt-tl li { display: flex; gap: 10px; align-items: flex-start; position: relative; }
 .vlt-tl li:not(:last-child)::after { content: ""; position: absolute; left: 4px; top: 14px; bottom: -10px; width: 2px; background: var(--blue-line); }

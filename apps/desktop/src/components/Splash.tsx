@@ -47,6 +47,14 @@ export function Splash({ ready, note, onDone }: { ready: boolean; note?: string;
     return () => cancelAnimationFrame(raf);
   }, [onDone]);
 
+  // WebKit can pause requestAnimationFrame while the Tauri window is launching.
+  // Once the workspace is ready, never allow a cosmetic animation to block it.
+  useEffect(() => {
+    if (!ready || leaving) return;
+    const id = setTimeout(() => { setPct(100); setLeaving(true); setTimeout(onDone, 450); }, 2_000);
+    return () => clearTimeout(id);
+  }, [ready, leaving, onDone]);
+
   const step = pct >= 96 ? 3 : pct >= 66 ? 2 : pct >= 30 ? 1 : 0;
 
   return (
