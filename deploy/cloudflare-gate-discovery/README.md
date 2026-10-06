@@ -1,12 +1,15 @@
 # GATE Cloudflare Discovery Pipeline
 
-This Worker has two schedules: discovery runs every 30 minutes, while a separate one-minute trigger asks the Job Hunt OS API to import ready records from the Railway bridge. The trigger never contacts Railway/Postgres itself.
+This Worker runs three schedules: broad discovery hourly, Company Intelligence every 15 minutes, and the Job Hunt OS bridge import every minute. The import trigger never contacts Railway/Postgres directly.
 
 The source-only Queue consumer stores each complete record in the Railway bridge before Job Hunt OS imports it. It never sends a discovered record directly to MongoDB.
 
 ```text
-Cloudflare cron → Tavily → Queue → source-only processor → D1 journal
+Cloudflare cron → Provider Broker → Queue → source-only processor → D1 journal
 → Job Hunt OS API → MongoDB → Telegram outbox → desktop API
+
+Company Intelligence → direct career/ATS fetch → crawler fallback → federated search fallback
+→ Queue → normal GATE 2.x research/import path
 ```
 
 ## Data boundaries
@@ -19,11 +22,33 @@ Cloudflare cron → Tavily → Queue → source-only processor → D1 journal
 
 ## Required secrets
 
+Core pipeline:
+
 ```bash
 npx wrangler secret put TAVILY_API_KEY --name gate-discovery
 npx wrangler secret put RAILWAY_DELIVERY_TOKEN --name gate-discovery
 npx wrangler secret put GATE_BRIDGE_CRON_SECRET --name gate-discovery
 ```
+
+Federated discovery providers are optional and activated only when their server-side key exists:
+
+```bash
+npx wrangler secret put EXA_API_KEY --name gate-discovery
+npx wrangler secret put FIRECRAWL_API_KEY --name gate-discovery
+npx wrangler secret put LANGSEARCH_API_KEY --name gate-discovery
+npx wrangler secret put SEARCHAPI_API_KEY --name gate-discovery
+npx wrangler secret put SERPLY_API_KEY --name gate-discovery
+npx wrangler secret put SEARCH1API_KEY --name gate-discovery
+npx wrangler secret put YEP_API_KEY --name gate-discovery
+npx wrangler secret put CRAWLERAPI_API_KEY --name gate-discovery
+npx wrangler secret put SIMPLECRAWL_API_KEY --name gate-discovery
+npx wrangler secret put PILOTERR_API_KEY --name gate-discovery
+npx wrangler secret put YAERIS_API_KEY --name gate-discovery
+```
+
+The current verified adapters are Tavily, Exa, Firecrawl, LangSearch, SearchAPI.io, Serply, Search1API, SimpleCrawl, and Piloterr. Yep, CrawlerAPI, and Yaeris remain cataloged as `adapter_pending` until their exact production endpoint/result contract is configured and smoke-tested; the broker will never report them as successful merely because a credential exists.
+
+Provider keys are never returned by status endpoints and never sent to the desktop.
 
 `RUN_TOKEN` is an optional operator-only secret for `POST /internal/run`, useful for controlled acceptance testing. Cron runs do not use it.
 
@@ -60,3 +85,37 @@ npx wrangler d1 execute gate-discovery-journal --remote --command \
 ```
 
 Railway is rollback-only until the agreed observation period passes; it is not part of this Worker’s delivery path.
+
+
+## Provider broker
+
+The Worker records provider configuration, health, soft-budget usage, failures, and the last successful verification in `GATE_STATUS`.
+
+Public, secret-free status:
+
+```http
+GET /providers
+```
+
+A provider is reported as one of:
+
+- `not_configured`
+- `configured_untested`
+- `verified`
+- `failing`
+- `credential_present_adapter_pending`
+
+Operator-only smoke test:
+
+```http
+POST /providers/test
+Authorization: Bearer <RUN_TOKEN>
+```
+
+The smoke test only marks a provider `verified` after a real authenticated API request succeeds. Search providers run a small Summer 2027 query. Crawler providers fetch `https://example.com/`. Missing credentials are reported as `not_configured`, not as failures.
+
+The provider broker uses daily soft limits and reserve percentages so one service cannot consume all of its free allowance early in the month. One-time signup balances are deliberately conserved and used after recurring pools.
+
+## Free-provider policy
+
+Only providers that offer a usable free tier without mandatory card verification are included in the catalog. The broker keeps recurring monthly/daily pools separate from one-time signup credits. If a provider changes its signup or billing policy, disable its key and mark the catalog entry inactive before routing new work to it.
