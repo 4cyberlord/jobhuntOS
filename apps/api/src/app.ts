@@ -172,6 +172,17 @@ export async function buildApp() {
     try { return await pollOutlookInbox(); } catch (e) { await markOutlookSyncError(e); return reply.code(502).send({ error: e instanceof Error ? e.message : "Outlook sync failed." }); }
   });
   app.get("/v1/desktop/company-intelligence/status", async () => ({ configured: companyIntelligenceConfigured() }));
+  app.get("/v1/desktop/company-intelligence/providers", async (_request, reply) => {
+    const base = (process.env.GATE_DISCOVERY_URL || "https://gate-discovery.4cyberlord.workers.dev").replace(/\/+$/, "");
+    try {
+      const r = await fetch(`${base}/providers`, { headers: { "user-agent": "job-hunt-os-api/1.0" }, signal: AbortSignal.timeout(6000) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) return reply.code(502).send({ error: (body as { error?: string }).error ?? `Discovery provider registry returned ${r.status}.` });
+      return body;
+    } catch (e) {
+      return reply.code(502).send({ error: e instanceof Error ? e.message : "Discovery provider registry is unavailable." });
+    }
+  });
   app.get("/v1/desktop/company-intelligence", async (_request, reply) => {
     if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
     try { return await companyIntelligenceView(); }
