@@ -130,11 +130,8 @@ export async function buildApp() {
   app.addHook("onSend", async (_request, reply) => { reply.header("Cache-Control", "no-store"); });
   app.addHook("onRequest", async (request, reply) => {
     if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import") && !request.url.startsWith("/v1/internal/company-intelligence/")) return;
-    const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
-    const isMigration = request.url.startsWith("/v1/internal/company-intelligence/migrate-once");
     const expected = request.url.startsWith("/v1/internal/gate-bridge/import") || request.url.startsWith("/v1/internal/company-intelligence/") ? process.env.GATE_BRIDGE_CRON_SECRET : process.env.CRON_SECRET;
-    const migrationExpected = isMigration ? process.env.COMPANY_INTELLIGENCE_MIGRATION_SECRET : undefined;
-    if (!sameKey(supplied, expected) && !(migrationExpected && sameKey(supplied, migrationExpected))) return reply.code(401).send({ error: "unauthorized" });
+    if (!sameKey(request.headers.authorization?.replace(/^Bearer\s+/i, ""), expected)) return reply.code(401).send({ error: "unauthorized" });
   });
   // Sign-in for the desktop app: the owner's email + password (stored as a salted hash in the database) buy a session token.
   const loginBody = z.object({ email: z.string().max(200), password: z.string().min(1).max(200), keep: z.boolean().optional() });
