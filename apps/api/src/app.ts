@@ -242,6 +242,41 @@ export async function buildApp() {
     try { return await companyIntelligenceDetail((request.params as { id: string }).id); }
     catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Company Intelligence is unavailable." }); }
   });
+  app.post("/v1/internal/company-intelligence/migrate-once", async (_request, reply) => {
+    try {
+      const d = await database();
+      const marker = await d.collection("company_intelligence_state").findOne({ _id: "one_time_migration_v1" } as never) as { completed?: boolean } | null;
+      if (marker?.completed) return { ok: true, complete: true, status: "already_completed", companies_linked: 0, gate_backfilled: 0 };
+
+      let companiesLinked = 0;
+      let gateBackfilled = 0;
+      let complete = false;
+      for (let i = 0; i < 20; i++) {
+        const chunk = await bootstrapCompanyIntelligenceChunk();
+        companiesLinked += chunk.companies_linked;
+        gateBackfilled += chunk.gate_backfilled;
+        complete = chunk.complete;
+        if (complete) break;
+      }
+
+      if (complete) {
+        await d.collection("company_intelligence_state").updateOne(
+          { _id: "one_time_migration_v1" } as never,
+          { $set: { completed: true, completed_at: new Date(), companies_linked: companiesLinked, gate_backfilled: gateBackfilled } },
+          { upsert: true },
+        );
+        await notifyCompanyIntelligenceLifecycle("one_time_migration_complete", {
+          companies_linked: companiesLinked,
+          gate_backfilled: gateBackfilled,
+        }).catch(() => undefined);
+      }
+
+      return { ok: true, complete, companies_linked: companiesLinked, gate_backfilled: gateBackfilled };
+    } catch (e) {
+      return reply.code(500).send({ error: e instanceof Error ? e.message : "company_intelligence_migration_failed" });
+    }
+  });
+
   app.get("/v1/internal/company-intelligence/due", async (request, reply) => {
     const q = z.object({ limit: z.coerce.number().int().min(1).max(25).optional() }).safeParse(request.query);
     if (!q.success) return reply.code(422).send({ error: "invalid_query" });
