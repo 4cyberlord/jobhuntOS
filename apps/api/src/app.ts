@@ -132,7 +132,7 @@ export async function buildApp() {
     return r.status >= 300 && r.status < 400 && to ? reply.redirect(to, 302) : reply.code(404).send({ error: "not found" });
   });
   app.delete("/v1/desktop/session", async (request) => { await endSession(bearer(request)); return { ok: true }; });
-  app.get("/health", async () => ({ ok: true }));
+  app.get("/health", async () => ({ ok: true, service: "job-hunt-os-api", version: "2026.10.06-automated-cicd" }));
   app.get("/v1/agent/search-profile", async () => searchProfile);
   app.post("/v1/agent/opportunities", async (request, reply) => { if (containsSensitiveKey(request.body)) return reply.code(400).send({ error: "sensitive fields are forbidden" }); const parsed = agentOpportunitySchema.safeParse(request.body); if (!parsed.success) return reply.code(422).send({ error: "invalid payload", details: parsed.error.flatten() }); const item = await upsertPending(parsed.data, duplicateKey(parsed.data)); await audit("agent.opportunity.upsert", parsed.data.externalId); return reply.code(201).send({ id: item?._id, reviewStatus: "pending_review" }); });
   app.patch("/v1/agent/opportunities/:externalId", async (request, reply) => { const body = request.body as { postingStatus?: "open" | "closed" | "reposted" }; if (!body?.postingStatus) return reply.code(422).send({ error: "postingStatus required" }); const d = await database(); const result = await d.collection("opportunities").updateOne({ externalId: (request.params as { externalId: string }).externalId }, { $set: { postingStatus: body.postingStatus, updatedAt: new Date() } }); await audit("agent.opportunity.status", (request.params as { externalId: string }).externalId); return reply.send({ updated: result.matchedCount === 1 }); });
