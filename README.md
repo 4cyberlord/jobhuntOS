@@ -1,48 +1,280 @@
+<div align="center">
+
+<img src="assets/job-hunt-os-mark.svg" alt="Job Hunt OS" width="112" height="112" />
+
 # Job Hunt OS
 
-Job Hunt OS is a macOS-first application tracker. It turns job-search signals into an organized workflow: discover an opportunity, approve it into a pipeline, track its application and assessment stages in Kanban, and surface scheduled events and decisions in Calendar and Notifications.
+**A macOS-first command center for discovering, evaluating, and managing job opportunities.**
+
+Track applications, automate opportunity intake with GATE, organize company intelligence, connect Outlook, manage documents and credentials, and keep the entire search lifecycle in one desktop workspace.
+
+![macOS](https://img.shields.io/badge/macOS-first-111827?style=flat-square&logo=apple&logoColor=white)
+![Tauri](https://img.shields.io/badge/Tauri-desktop-24C8DB?style=flat-square&logo=tauri&logoColor=white)
+![React](https://img.shields.io/badge/React-UI-149ECA?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-typed-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![GATE](https://img.shields.io/badge/GATE-2.x-7A56EE?style=flat-square)
+
+</div>
+
+---
+
+## What Job Hunt OS does
+
+Job Hunt OS turns scattered job-search activity into one structured system. Opportunities discovered by agents, job boards, career pages, email, and manual entry flow into a single workspace where they can be reviewed, approved, tracked, enriched, and acted on.
+
+The desktop app is designed around a simple rule: **automation may discover, classify, and organize, but important user actions stay explicit and auditable.**
+
+### Core workspace
+
+- **Dashboard** — high-level activity, pipeline health, upcoming events, and agent results.
+- **Opportunities** — every role you saved, imported, or approved from GATE.
+- **GATE Inbox** — agent-discovered opportunities waiting for review.
+- **Company Intelligence** — canonical employer registry, verified career sources, scan health, and discovered postings.
+- **Companies** — your personal company relationships, contacts, application context, and notes.
+- **Calendar** — interviews, assessments, deadlines, and other scheduled events.
+- **Conferences** — discovered events and application opportunities.
+- **Documents** — résumés and supporting application material.
+- **Credential Vault** — encrypted credentials that remain under the user's control.
+- **Agent Inbox & Notifications** — automation activity, review items, and change history.
+- **Settings** — account, integrations, appearance, sync, and app preferences.
+
+## GATE
+
+**GATE — Gather, Assess, Track, Execute** is the opportunity discovery and intake system behind Job Hunt OS.
+
+A GATE agent can discover a role and submit a complete GATE 2.x record to:
+
+`POST /v1/agent/gate/opportunities`
+
+Each record can carry:
+
+- original posting evidence;
+- company and role identity;
+- required and preferred skills;
+- technologies and technical stack;
+- compensation and location;
+- internship dates and duration;
+- work authorization and sponsorship language;
+- application requirements and instructions;
+- hiring-process details;
+- match score and eligibility risk;
+- provenance, timestamps, and canonical apply URL.
+
+Approving a GATE opportunity creates a normal Job Hunt OS opportunity. **Approval never submits an application.**
+
+See [docs/GATE.md](docs/GATE.md) for the full contract.
+
+## Company Intelligence
+
+Company Intelligence is the shared employer knowledge layer used by GATE and the desktop app.
+
+It maintains:
+
+- canonical company identities;
+- verified company websites;
+- official career pages and ATS sources;
+- source verification and health;
+- technical-employer status;
+- discovered job postings;
+- GATE IDs and posting lineage;
+- scan state and scheduling metadata.
+
+Company Intelligence is intentionally separate from the personal **Companies** section. A company may exist globally in Company Intelligence without being added to the user's relationship/application workspace.
+
+The UI uses the same shared logo system as the rest of Job Hunt OS: known brand marks first, then verified-site icons, then a deterministic fallback tile.
 
 ## Opportunity flow
 
-1. A GATE agent discovers an opportunity and adds it to the separate GATE Inbox.
-2. **Approve to pipeline** creates a Job in the **Saved** Kanban stage, preserves its source and match evidence, and creates a company record when needed. It never submits an application.
-3. After you apply, a matching confirmation email advances the Job to **Applied**. A coding challenge, online assessment, take-home, or live-code invitation advances it to **Assessment**; an interview, offer, or rejection moves it to the corresponding stage.
-4. Every email-driven action creates a Notification and audit entry naming the sender, subject, confidence, and change. A dated interview or assessment creates a Calendar event; assessments also create a high-priority task.
+1. GATE discovers an opportunity and places it in the **GATE Inbox**.
+2. The user reviews the evidence and match assessment.
+3. **Approve to pipeline** creates a Job in **Saved** and preserves the source and GATE metadata.
+4. After the user applies, matching email activity can advance the opportunity to **Applied**.
+5. Assessments, interviews, offers, and rejections update the pipeline when confidence is high.
+6. Ambiguous email events become review notifications instead of silently changing application state.
 
-High-confidence matches advance automatically. Ambiguous or low-confidence messages create a review notification and never silently move a Job. The app never auto-downgrades a stage, creates a Job from an unrelated email, or sends email.
+The app does not auto-submit applications, auto-send email, or silently downgrade pipeline stages.
 
 ## Outlook email sync
 
-The app uses a **server-managed Microsoft Graph connection**, supporting Outlook.com and Microsoft 365 work/school accounts. In **Settings → Integrations**, click **Connect Outlook** and approve Microsoft’s read-only Inbox permission. You never paste an Azure Client ID, client secret, or token into the desktop app.
+Job Hunt OS uses a **server-managed Microsoft Graph connection** for Outlook.com and Microsoft 365 work/school accounts.
 
-The API checks the Inbox every five minutes, and the desktop also provides **Sync email now**. The server keeps encrypted OAuth tokens and a Graph delta cursor; the desktop receives only the minimum message metadata needed to classify and match messages. Raw message bodies are not retained, attachments are not read, and the integration never writes to Outlook mail or Outlook Calendar.
+From **Settings → Integrations**, choose **Connect Outlook** and approve read-only Inbox access.
 
-> The `marlonluo2018/outlook-mcp-server` project is Windows-only: it requires Outlook desktop and `win32COM`. It cannot run in this macOS app or a hosted service. This app uses Microsoft Graph because it is cross-platform and supports the same Inbox workflow.
+The desktop never receives Azure client secrets or long-lived Graph tokens. The API stores encrypted OAuth material and maintains the Graph delta cursor. Only the message metadata required for classification and matching is retained by the Job Hunt OS workflow.
 
-### Server setup
+The integration:
 
-Create a Microsoft Entra application that supports personal and organizational Microsoft accounts. Add this deployed callback URL:
+- reads Inbox events used for application tracking;
+- does not send email;
+- does not write to Outlook Calendar;
+- does not retain raw message bodies;
+- does not read attachments.
 
-`https://YOUR_API_HOST/v1/desktop/outlook/callback`
+### Outlook server configuration
 
-Give it delegated `Mail.Read`, `User.Read`, and `offline_access` permissions. Set these server-only values on Vercel, your VPS, or local `apps/api/.env`:
+Create a Microsoft Entra application that supports personal and organizational Microsoft accounts and configure:
 
-- `OUTLOOK_CLIENT_ID`
-- `OUTLOOK_CLIENT_SECRET`
-- `OUTLOOK_REDIRECT_URI`
-- `OUTLOOK_TOKEN_ENCRYPTION_KEY` — a unique 32-byte base64 key or 64 hexadecimal characters
-- `CRON_SECRET` — a separate random secret protecting scheduled syncs
+```text
+https://YOUR_API_HOST/v1/desktop/outlook/callback
+```
 
-The Vercel deployment includes a five-minute cron route. On a VPS, call `POST /v1/internal/outlook/sync` every five minutes with `Authorization: Bearer $CRON_SECRET`.
+Delegated permissions:
 
-## Install and development
+- `Mail.Read`
+- `User.Read`
+- `offline_access`
 
-Run `npm install` at the repository root. Copy `apps/api/.env.example` to `apps/api/.env`, configure MongoDB and the values you need locally, then run `npm run dev:api` and `npm run dev:desktop` in separate terminals.
+Server-only environment values:
 
-The desktop keeps its sign-in/session settings, presentation preferences, local cache, and encrypted vault material on the device. The API stores synchronized workspace records, GATE data, document chunks, sessions, and encrypted Outlook connection data in MongoDB. Vault passwords are never exported or exposed to the agent.
+```text
+OUTLOOK_CLIENT_ID
+OUTLOOK_CLIENT_SECRET
+OUTLOOK_REDIRECT_URI
+OUTLOOK_TOKEN_ENCRYPTION_KEY
+CRON_SECRET
+```
 
-## GATE and security
+## Architecture
 
-GATE (Gather, Assess, Track, Execute) accepts agent discoveries at `POST /v1/agent/gate/opportunities`. Production agents send one complete GATE 2.x opportunity at a time and wait for the server acknowledgement/fingerprint before sending the next; direct batch imports use the documented `results` wrapper. The agent has submit-only access and cannot retrieve credentials, workspace data, or submit applications. The desktop sync endpoint uses its own authenticated session.
+```text
+                           ┌──────────────────────┐
+                           │   Discovery Agents   │
+                           │  Cloudflare / GATE   │
+                           └──────────┬───────────┘
+                                      │
+                                      ▼
+┌──────────────────┐       ┌──────────────────────┐
+│  Job Hunt OS     │◄─────►│   Job Hunt OS API    │
+│  Tauri Desktop   │       │      Vercel          │
+│  React + TS      │       └──────────┬───────────┘
+└────────┬─────────┘                  │
+         │                            ├──────────────► MongoDB
+         │                            │                workspace / applications
+         │                            │
+         │                            └──────────────► Render PostgreSQL
+         │                                             Company Intelligence
+         │
+         └────────────► local settings, cache, and encrypted vault material
+```
 
-See [docs/GATE.md](docs/GATE.md) for the discovery contract and [docs/RELEASING.md](docs/RELEASING.md) for release instructions.
+Additional delivery and automation services may be used by GATE without changing the desktop contract. The desktop talks to the authenticated Job Hunt OS API rather than directly to infrastructure databases.
+
+## Technology
+
+| Area | Stack |
+| --- | --- |
+| Desktop | Tauri |
+| Frontend | React, TypeScript, Vite |
+| API | Node.js, TypeScript |
+| Primary workspace data | MongoDB |
+| Company Intelligence | PostgreSQL |
+| Opportunity discovery | GATE 2.x |
+| Email integration | Microsoft Graph |
+| Deployment | Vercel, Render, Cloudflare, Railway |
+| Shared contracts | npm workspaces / TypeScript packages |
+
+## Local development
+
+### Requirements
+
+- Node.js
+- npm
+- Rust toolchain required by Tauri
+- macOS for the primary desktop development workflow
+- a configured API environment for features that require backend services
+
+### Install
+
+```bash
+git clone https://github.com/4cyberlord/jobhuntOS.git
+cd jobhuntOS
+npm install
+```
+
+Copy the API environment template:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Configure the services you need in `apps/api/.env`.
+
+### Run the full development workspace
+
+```bash
+npm start
+```
+
+Or run the API and desktop separately:
+
+```bash
+npm run dev:api
+npm run dev:desktop
+```
+
+### Checks
+
+```bash
+npm run typecheck
+npm test
+```
+
+### Desktop build
+
+```bash
+npm run build:desktop
+```
+
+## Repository layout
+
+```text
+apps/
+  api/                 Job Hunt OS API
+  desktop/             Tauri + React desktop application
+
+packages/
+  contracts/           Shared TypeScript contracts and helpers
+
+deploy/
+  cloudflare-gate-discovery/
+  railway-gateway/
+  render-company-intelligence/
+  macos/
+  nginx/
+  systemd/
+
+docs/
+  GATE.md
+  RELEASING.md
+
+assets/
+  job-hunt-os-mark.svg
+```
+
+## Data and security model
+
+Job Hunt OS separates user-facing workflow data, global company intelligence, local desktop state, and agent permissions.
+
+- GATE receives submit-only access for opportunity ingestion.
+- Desktop synchronization uses an authenticated user session.
+- Company Intelligence uses a separate service boundary and database.
+- Outlook OAuth credentials remain server-side and encrypted.
+- Vault passwords are not exported to agents.
+- Secrets are never committed to the repository.
+- Automated decisions create traceable records and notifications.
+
+## Release documentation
+
+See [docs/RELEASING.md](docs/RELEASING.md) for the current release process.
+
+---
+
+<div align="center">
+
+<img src="assets/job-hunt-os-mark.svg" alt="Job Hunt OS logo" width="52" height="52" />
+
+**Job Hunt OS**
+
+*Discover intelligently. Decide deliberately. Track everything.*
+
+</div>
