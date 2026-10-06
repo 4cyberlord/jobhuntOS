@@ -16,6 +16,7 @@ export interface ProviderEnv {
   SIMPLECRAWL_API_KEY?: string;
   PILOTERR_API_KEY?: string;
   YAERIS_API_KEY?: string;
+  CRAWLERAPI_ENDPOINT?: string;
 }
 
 type ProviderSpec = {
@@ -27,21 +28,22 @@ type ProviderSpec = {
   dailySoftLimit: number;
   reservePercent: number;
   notes: string;
+  adapter: "search" | "crawl" | "catalog";
 };
 
 export const PROVIDERS: ProviderSpec[] = [
-  { id:"tavily", envKey:"TAVILY_API_KEY", capability:"search", budgetType:"monthly", advertisedLimit:1000, dailySoftLimit:18, reservePercent:15, notes:"1,000 API credits/month" },
-  { id:"exa", envKey:"EXA_API_KEY", capability:"search", budgetType:"monthly", advertisedLimit:null, dailySoftLimit:10, reservePercent:20, notes:"$10 free credits/month" },
-  { id:"firecrawl", envKey:"FIRECRAWL_API_KEY", capability:"search", budgetType:"monthly", advertisedLimit:1000, dailySoftLimit:10, reservePercent:20, notes:"1,000 credits/month; search costs 2 credits" },
-  { id:"yep", envKey:"YEP_API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:1000, dailySoftLimit:4, reservePercent:25, notes:"1,000 free requests on signup" },
-  { id:"langsearch", envKey:"LANGSEARCH_API_KEY", capability:"search", budgetType:"daily", advertisedLimit:null, dailySoftLimit:12, reservePercent:20, notes:"free plan with daily token allowance" },
-  { id:"searchapi", envKey:"SEARCHAPI_API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:100, dailySoftLimit:2, reservePercent:30, notes:"100 free requests" },
-  { id:"serply", envKey:"SERPLY_API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:2500, dailySoftLimit:10, reservePercent:25, notes:"2,500 signup credits valid for 30 days" },
-  { id:"search1api", envKey:"SEARCH1API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:100, dailySoftLimit:1, reservePercent:40, notes:"100 free credits; no expiry" },
-  { id:"crawlerapi", envKey:"CRAWLERAPI_API_KEY", capability:"crawl", budgetType:"monthly", advertisedLimit:1000, dailySoftLimit:8, reservePercent:20, notes:"1,000 free credits/month" },
-  { id:"simplecrawl", envKey:"SIMPLECRAWL_API_KEY", capability:"crawl", budgetType:"unknown", advertisedLimit:null, dailySoftLimit:4, reservePercent:30, notes:"free tier; no card" },
-  { id:"piloterr", envKey:"PILOTERR_API_KEY", capability:"crawl", budgetType:"one_time", advertisedLimit:500, dailySoftLimit:2, reservePercent:30, notes:"500 free starter credits" },
-  { id:"yaeris", envKey:"YAERIS_API_KEY", capability:"crawl", budgetType:"one_time", advertisedLimit:100, dailySoftLimit:1, reservePercent:40, notes:"100 signup credits" },
+  { id:"tavily", envKey:"TAVILY_API_KEY", capability:"search", budgetType:"monthly", advertisedLimit:1000, dailySoftLimit:18, reservePercent:15, notes:"1,000 API credits/month", adapter:"search" },
+  { id:"exa", envKey:"EXA_API_KEY", capability:"search", budgetType:"monthly", advertisedLimit:null, dailySoftLimit:10, reservePercent:20, notes:"$10 free credits/month", adapter:"search" },
+  { id:"firecrawl", envKey:"FIRECRAWL_API_KEY", capability:"search", budgetType:"monthly", advertisedLimit:1000, dailySoftLimit:10, reservePercent:20, notes:"1,000 credits/month; search costs 2 credits", adapter:"search" },
+  { id:"yep", envKey:"YEP_API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:1000, dailySoftLimit:4, reservePercent:25, notes:"1,000 free requests on signup", adapter:"catalog" },
+  { id:"langsearch", envKey:"LANGSEARCH_API_KEY", capability:"search", budgetType:"daily", advertisedLimit:null, dailySoftLimit:12, reservePercent:20, notes:"free plan with daily token allowance", adapter:"search" },
+  { id:"searchapi", envKey:"SEARCHAPI_API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:100, dailySoftLimit:2, reservePercent:30, notes:"100 free requests", adapter:"search" },
+  { id:"serply", envKey:"SERPLY_API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:2500, dailySoftLimit:10, reservePercent:25, notes:"2,500 signup credits valid for 30 days", adapter:"search" },
+  { id:"search1api", envKey:"SEARCH1API_KEY", capability:"search", budgetType:"one_time", advertisedLimit:100, dailySoftLimit:1, reservePercent:40, notes:"100 free credits; no expiry", adapter:"search" },
+  { id:"crawlerapi", envKey:"CRAWLERAPI_API_KEY", capability:"crawl", budgetType:"monthly", advertisedLimit:1000, dailySoftLimit:8, reservePercent:20, notes:"1,000 free credits/month", adapter:"catalog" },
+  { id:"simplecrawl", envKey:"SIMPLECRAWL_API_KEY", capability:"crawl", budgetType:"unknown", advertisedLimit:null, dailySoftLimit:4, reservePercent:30, notes:"free tier; no card", adapter:"crawl" },
+  { id:"piloterr", envKey:"PILOTERR_API_KEY", capability:"crawl", budgetType:"one_time", advertisedLimit:500, dailySoftLimit:2, reservePercent:30, notes:"500 free starter credits", adapter:"crawl" },
+  { id:"yaeris", envKey:"YAERIS_API_KEY", capability:"crawl", budgetType:"one_time", advertisedLimit:100, dailySoftLimit:1, reservePercent:40, notes:"100 signup credits", adapter:"catalog" },
 ];
 
 const dayKey = (id:string) => `provider-usage:${id}:day:${new Date().toISOString().slice(0,10)}`;
@@ -136,6 +138,43 @@ export async function federatedSearch(env:ProviderEnv,query:string,max=10){
   return {provider:null,results:[] as ProviderResult[],configured,skipped};
 }
 
+async function providerCrawl(env:ProviderEnv,id:string,url:string){
+  const key=(name:keyof ProviderEnv)=>String(env[name]||"");
+  let response:Response;
+  if(id==="firecrawl"){
+    response=await fetch("https://api.firecrawl.dev/v2/scrape",{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${key("FIRECRAWL_API_KEY")}`},body:JSON.stringify({url,formats:["markdown","links"]})});
+  } else if(id==="simplecrawl"){
+    response=await fetch("https://api.simplecrawl.com/v1/scrape",{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${key("SIMPLECRAWL_API_KEY")}`},body:JSON.stringify({url,format:"markdown"})});
+  } else if(id==="piloterr"){
+    const u=new URL("https://api.piloterr.com/v2/website/crawler");u.searchParams.set("query",url);
+    response=await fetch(u,{headers:{"x-api-key":key("PILOTERR_API_KEY")}});
+  } else if(id==="crawlerapi"){
+    const endpoint=String(env.CRAWLERAPI_ENDPOINT||"").trim();
+    if(!endpoint) throw new Error("crawlerapi_endpoint_not_configured");
+    response=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${key("CRAWLERAPI_API_KEY")}`},body:JSON.stringify({url})});
+  } else throw new Error("unsupported_crawl_provider");
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(`${id}_http_${response.status}:${String((body as any)?.error||"request_failed").slice(0,120)}`);
+  const content=(body as any)?.data?.markdown||(body as any)?.markdown||(body as any)?.content||(body as any)?.data?.content||(body as any)?.html||(body as any)?.data?.html||"";
+  const links=(body as any)?.data?.links||(body as any)?.links||[];
+  return {content:String(content||""),links:Array.isArray(links)?links:[]};
+}
+
+export async function federatedCrawl(env:ProviderEnv,url:string){
+  const order=["firecrawl","simplecrawl","piloterr","crawlerapi"];
+  for(const id of order){
+    const spec=PROVIDERS.find(p=>p.id===id);
+    if(!spec||!await canUse(env,spec)) continue;
+    try{
+      await countUse(env,id);
+      const result=await providerCrawl(env,id,url);
+      await mark(env,id,true);
+      if(result.content||result.links.length) return {provider:id,...result};
+    }catch(e){await mark(env,id,false,e instanceof Error?e.message:String(e));}
+  }
+  return {provider:null,content:"",links:[] as unknown[]};
+}
+
 export async function providerStatus(env:ProviderEnv){
   const items=[];
   for(const spec of PROVIDERS){
@@ -143,7 +182,7 @@ export async function providerStatus(env:ProviderEnv){
     const usedToday=await readNumber(env.GATE_STATUS,dayKey(spec.id));
     const totalUsed=await readNumber(env.GATE_STATUS,totalKey(spec.id));
     const health=JSON.parse(await env.GATE_STATUS.get(healthKey(spec.id))||"{}");
-    items.push({...spec,configured,used_today:usedToday,total_used:totalUsed,remaining_today:Math.max(0,spec.dailySoftLimit-usedToday),...health});
+    items.push({...spec,configured,integration_state:configured?(spec.adapter==="catalog"?"credential_present_adapter_pending":(health.healthy===true?"verified":health.last_checked_at?"failing":"configured_untested")):"not_configured",used_today:usedToday,total_used:totalUsed,remaining_today:Math.max(0,spec.dailySoftLimit-usedToday),...health});
   }
   return {generated_at:new Date().toISOString(),providers:items};
 }
@@ -151,13 +190,20 @@ export async function providerStatus(env:ProviderEnv){
 export async function testConfiguredProviders(env:ProviderEnv){
   const query='"Summer 2027" "Software Engineer Intern"';
   const results=[];
-  for(const spec of PROVIDERS.filter(p=>p.capability==="search")){
+  for(const spec of PROVIDERS){
     const configured=typeof env[spec.envKey]==="string"&&String(env[spec.envKey]).trim().length>0;
     if(!configured){results.push({provider:spec.id,status:"not_configured"});continue;}
+    if(spec.adapter==="catalog"){results.push({provider:spec.id,status:"adapter_pending"});continue;}
     try{
-      const rows=await providerSearch(env,spec.id,query,3);
-      await mark(env,spec.id,true);
-      results.push({provider:spec.id,status:"ok",results:rows.length});
+      if(spec.capability==="search"){
+        const rows=await providerSearch(env,spec.id,query,3);
+        await mark(env,spec.id,true);
+        results.push({provider:spec.id,status:"ok",results:rows.length});
+      }else{
+        const page=await providerCrawl(env,spec.id,"https://example.com/");
+        await mark(env,spec.id,true);
+        results.push({provider:spec.id,status:"ok",content_bytes:page.content.length,links:page.links.length});
+      }
     }catch(e){
       const error=e instanceof Error?e.message:String(e);
       await mark(env,spec.id,false,error);
