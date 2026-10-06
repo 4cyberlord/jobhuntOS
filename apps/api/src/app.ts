@@ -5,7 +5,7 @@ import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUS
 import { timingSafeEqual } from "node:crypto";
 import { verifyPassword } from "./auth.js";
 import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
-import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
+import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, workspaceCompaniesForIntelligence, linkWorkspaceCompanyIntelligence, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
 import { companyWorkbookConfigured, syncCompanyIntelligenceWorkbook } from "./company-excel.js";
@@ -101,6 +101,38 @@ export async function buildApp() {
     if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
     try { return await companyIntelligenceView(); }
     catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Company Intelligence is unavailable." }); }
+  });
+  app.post("/v1/desktop/company-intelligence/reconcile", async (_request, reply) => {
+    if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
+    const rows = await workspaceCompaniesForIntelligence();
+    let linked = 0, unresolved = 0, alreadyLinked = 0;
+    const results: Array<{ local_id: string; name: string; intelligence_id?: string; status: string; matched_by?: string; confidence?: number }> = [];
+    for (const row of rows) {
+      const doc = row.doc ?? {};
+      const name = typeof doc.name === "string" ? doc.name.trim() : "";
+      if (!name) continue;
+      if (typeof doc.intelligenceId === "string" && doc.intelligenceId) {
+        alreadyLinked++;
+        results.push({ local_id: row.id, name, intelligence_id: doc.intelligenceId, status: "already_linked" });
+        continue;
+      }
+      try {
+        const website = typeof doc.website === "string" ? doc.website : undefined;
+        const match = await resolveIntelligenceCompany({ name, website });
+        if (!match?.company.id) {
+          unresolved++;
+          results.push({ local_id: row.id, name, status: "unresolved" });
+          continue;
+        }
+        await linkWorkspaceCompanyIntelligence(row.id, match.company.id);
+        linked++;
+        results.push({ local_id: row.id, name, intelligence_id: match.company.id, status: "linked", matched_by: match.matched_by, confidence: match.confidence });
+      } catch {
+        unresolved++;
+        results.push({ local_id: row.id, name, status: "unresolved" });
+      }
+    }
+    return { ok: true, total: rows.length, linked, already_linked: alreadyLinked, unresolved, results };
   });
   app.get("/v1/desktop/company-intelligence/:id", async (request, reply) => {
     if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
