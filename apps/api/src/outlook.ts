@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { database } from "./repository.js";
 
 const CONNECTION = "owner";
-const SCOPES = "openid profile offline_access User.Read Mail.Read";
+const SCOPES = "openid profile offline_access User.Read Mail.Read Files.ReadWrite";
 type Token = { access_token: string; refresh_token?: string; expires_in: number; scope?: string };
 export type OutlookMessage = { id: string; internetMessageId?: string; conversationId?: string; subject: string; from?: { emailAddress: { address: string; name?: string } }; sender?: { emailAddress: { address: string; name?: string } }; receivedDateTime: string; bodyPreview?: string; body?: { contentType: string; content: string }; headers?: { name: string; value: string }[] };
 
@@ -42,7 +42,7 @@ async function exchange(params: URLSearchParams) {
   if (!r.ok) throw new Error(j.error_description ?? `Microsoft token exchange failed (${r.status}).`);
   return j;
 }
-async function graphAccess() {
+export async function graphAccess() {
   const d = await database(); const c = d.collection<any>("outlook_connections"); const row = await c.findOne({ _id: CONNECTION });
   if (!row?.refreshToken) throw new Error("Outlook is not connected.");
   if (row.accessToken && row.accessExpiresAt instanceof Date && row.accessExpiresAt.getTime() > Date.now() + 60_000) return { token: unseal(row.accessToken), row };
