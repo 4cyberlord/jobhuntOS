@@ -385,9 +385,9 @@ export function approve(d: AppData, id: string, now = Date.now()): { data: AppDa
   let companies = d.companies;
   const existing = companies.find((c) => c.name.toLowerCase() === e.company.name.toLowerCase());
   if (existing) {
-    companies = companies.map((c) => (c.id === existing.id ? { ...c, website: c.website || e.company.website || e.company.careers_url || "", industry: c.industry || e.company.industry || "", hq: c.hq || e.company.headquarters || "" } : c));
+    companies = companies.map((c) => (c.id === existing.id ? { ...c, website: c.website || e.company.website || e.company.careers_url || "", industry: c.industry || e.company.industry || "", hq: c.hq || e.company.headquarters || "", intelligenceId: c.intelligenceId || e.company.intelligence_id || undefined } : c));
   } else {
-    companies = [...companies, { id: uid(), name: e.company.name, website: e.company.website ?? e.company.careers_url ?? "", industry: e.company.industry ?? "", size: "", hq: e.company.headquarters ?? "", notes: "" }];
+    companies = [...companies, { id: uid(), name: e.company.name, website: e.company.website ?? e.company.careers_url ?? "", industry: e.company.industry ?? "", size: "", hq: e.company.headquarters ?? "", notes: "", intelligenceId: e.company.intelligence_id ?? undefined }];
   }
   const dl = deadlineOf(e);
   const event: CalEvent | undefined = dl && dl > now
