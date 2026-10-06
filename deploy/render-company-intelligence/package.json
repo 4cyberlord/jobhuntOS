@@ -1,0 +1,11 @@
+{
+  "name": "jobhunt-company-intelligence-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
