@@ -40,7 +40,14 @@ const server = http.createServer(async (req, res) => {
       }
       if (typeof body?.lease_token !== "string" || typeof body?.gate_opportunity_id !== "string") return send(res, 422, { error: "lease_token and gate_opportunity_id are required" });
       const row = await acknowledgeRecord(pool, match[1], body.lease_token, body.gate_opportunity_id, typeof body.fingerprint === "string" ? body.fingerprint : null);
-      return row ? send(res, 200, { ok: true, status: "imported", ...row }) : send(res, 409, { error: "invalid_or_expired_lease" });
+      if (row) {
+        // Railway owns the imported notification — Job Hunt OS API has confirmed MongoDB persistence via the ACK.
+        const storedMeta = await pool.query("SELECT company_name, job_title FROM gate_discovery_queue WHERE id = $1", [match[1]]).catch(() => ({ rows: [] }));
+        const meta = storedMeta.rows[0];
+        lifecycle("imported", { company: meta?.company_name, role: meta?.job_title, gate_id: body.gate_opportunity_id });
+        return send(res, 200, { ok: true, status: "imported", ...row });
+      }
+      return send(res, 409, { error: "invalid_or_expired_lease" });
     }
     const deleteMatch = /^\/v1\/opportunities\/([0-9a-f-]{36})$/.exec(path);
     if (deleteMatch && req.method === "DELETE") {
@@ -55,7 +62,7 @@ const server = http.createServer(async (req, res) => {
     if (invalid) return send(res, 422, { error: invalid });
     const queued = await enqueue(pool, record);
     console.log(`accepted queue_id=${queued.id} fingerprint=${queued.fingerprint}`);
-    lifecycle("stored_in_railway", { company: record.company?.name, role: record.opportunity?.title });
+    lifecycle("stored", { company: record.company?.name, role: record.opportunity?.title, gate_id: queued.id });
     return send(res, 202, { ok: true, accepted: true, queue_id: queued.id, fingerprint: queued.fingerprint, status: "ready" });
   } catch (error) { const message = error instanceof Error ? error.message : "invalid request"; return send(res, message === "Payload too large" ? 413 : 400, { error: message.slice(0, 300) }); }
 });
