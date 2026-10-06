@@ -186,7 +186,7 @@ export async function companyIntelligenceDetail(id: string) {
 export async function companyIntelligenceDue(limit = 10) {
   const view = await companyIntelligenceView() as { companies?: Array<Record<string, unknown>> };
   const now = Date.now();
-  const dueMs = (priority: number) => priority <= 1 ? 2 * 60 * 60 * 1000 : priority === 2 ? 6 * 60 * 60 * 1000 : priority === 3 ? 12 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const dueMs = (priority: number) => priority <= 1 ? 30 * 60 * 1000 : priority === 2 ? 60 * 60 * 1000 : priority === 3 ? 3 * 60 * 60 * 1000 : priority === 4 ? 6 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000;
   const companies = (view.companies ?? [])
     .filter((c) => c.active !== false && c.active !== 0 && c.technical_employer !== false && c.technical_employer !== 0)
     .filter((c) => {

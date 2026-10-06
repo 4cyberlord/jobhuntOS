@@ -12,7 +12,17 @@ const client = new MongoClient(uri);
 await client.connect();
 const db = client.db();
 
-const report = {
+const report: {
+  started_at: string;
+  finished_at?: string;
+  companies_seen: number;
+  companies_linked: number;
+  companies_created_or_resolved: number;
+  company_failures: number;
+  gate_records_seen: number;
+  gate_records_backfilled: number;
+  gate_failures: number;
+} = {
   started_at: new Date().toISOString(),
   companies_seen: 0,
   companies_linked: 0,
@@ -50,7 +60,7 @@ try {
             industry: typeof doc.industry === "string" ? doc.industry : undefined,
             headquarters: typeof doc.hq === "string" ? doc.hq : undefined,
             legal_name: typeof doc.legalName === "string" ? doc.legalName : undefined,
-            aliases: Array.isArray(doc.aliases) ? doc.aliases.filter((x) => typeof x === "string") : undefined,
+            aliases: Array.isArray(doc.aliases) ? doc.aliases.filter((x: unknown): x is string => typeof x === "string") : undefined,
           });
           intelligenceId = created.company.id;
         }

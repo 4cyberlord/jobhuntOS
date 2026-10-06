@@ -1,0 +1,31 @@
+name: Deploy Cloudflare GATE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/cloudflare-gate-discovery/**"
+      - ".github/workflows/deploy-cloudflare-gate.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/cloudflare-gate-discovery
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: deploy/cloudflare-gate-discovery/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: deploy/cloudflare-gate-discovery
+          command: deploy

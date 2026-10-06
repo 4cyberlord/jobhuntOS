@@ -18,3 +18,8 @@ jobs:
         run: |
           npm run typecheck -w @job-hunt-os/api
           npm run test -w @job-hunt-os/api
+      - name: Cloudflare discovery type-check
+        working-directory: deploy/cloudflare-gate-discovery
+        run: |
+          npm ci
+          npm run typecheck

@@ -1,3 +1,4 @@
+import { reserveTavilyCredit } from "./usage";
 export type IntelligenceCandidate = {
   url: string;
   title?: string;
@@ -14,6 +15,7 @@ type IntelligenceEnv = {
   GATE_IMPORT_URL: string;
   GATE_BRIDGE_CRON_SECRET: string;
   GATE_JOURNAL: D1Database;
+  GATE_STATUS: KVNamespace;
   CANDIDATES: Queue<unknown>;
 };
 
@@ -84,6 +86,7 @@ async function api(env: IntelligenceEnv, path: string, init: RequestInit = {}) {
   return body;
 }
 async function tavily(env: IntelligenceEnv, query: string, max = 10) {
+  if (!await reserveTavilyCredit(env.GATE_STATUS)) return [];
   const response = await fetch("https://api.tavily.com/search", {
     method:"POST",
     headers:{"content-type":"application/json"},
@@ -118,6 +121,46 @@ function normalizeCareerUrl(raw: string) {
   return canonicalUrl(u.toString());
 }
 
+const stripHtml = (html: string) => html
+  .replace(/<script[\s\S]*?<\/script>/gi," ")
+  .replace(/<style[\s\S]*?<\/style>/gi," ")
+  .replace(/<[^>]+>/g," ")
+  .replace(/&nbsp;/g," ")
+  .replace(/&amp;/g,"&")
+  .replace(/&#39;/g,"'")
+  .replace(/&quot;/g,'"')
+  .replace(/\s+/g," ")
+  .trim();
+
+async function directSourceResults(sourceUrl: string, season: string): Promise<SearchResult[]> {
+  let base: URL;
+  try { base=new URL(sourceUrl); } catch { return []; }
+  const r=await fetch(sourceUrl,{headers:{"user-agent":"GATE-Company-Intelligence/5.0","accept":"text/html,application/xhtml+xml"}});
+  if(!r.ok) return [];
+  const length=Number(r.headers.get("content-length")||0);
+  if(length>1_500_000) return [];
+  const html=await r.text();
+  if(html.length>1_500_000) return [];
+  const rows:SearchResult[]=[];
+  const seen=new Set<string>();
+  const year=(season.match(/20\d{2}/)||[])[0]||"2027";
+  const re=/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  for(let m:RegExpExecArray|null;(m=re.exec(html))&&rows.length<30;){
+    let url:URL; try{url=new URL(m[1],base);}catch{continue;}
+    if(url.protocol!=="https:"||!hostMatches(url.hostname.toLowerCase(),base.hostname.toLowerCase())) continue;
+    const title=stripHtml(m[2]||"");
+    const hay=`${title} ${url.pathname}`.toLowerCase();
+    if(!hay.includes(year)) continue;
+    if(!/intern|internship|co-op|student|early.career/.test(hay)) continue;
+    if(!TECH_TERMS.some((term)=>hay.includes(term.split(" ")[0]))&&!/software|engineer|technology|data|security|cloud|platform|developer|machine/.test(hay)) continue;
+    const clean=canonicalUrl(url.toString());
+    if(seen.has(clean)) continue;
+    seen.add(clean);
+    rows.push({url:clean,title});
+  }
+  return rows;
+}
+
 async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
   const c=item.company;
   const name=c.canonical_name;
@@ -143,6 +186,20 @@ async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
       const clean=normalizeCareerUrl(src.url);
       existing.set(clean,{url:clean,provider:src.provider||providerOf(hostOf(clean)),verification_status:src.verification_status||"discovered",source_type:"careers",evidence_url:src.url});
     } catch {}
+  }
+
+  if(!item.needs_enrichment && existing.size>0){
+    return {
+      company_id:c.id,
+      name,
+      legal_name:c.legal_name??null,
+      website,
+      industry:c.industry??null,
+      headquarters:c.state??null,
+      priority:Number(c.priority??3),
+      career_sources:[...existing.values()].slice(0,20),
+      ok:true,
+    };
   }
 
   const queries = corporateHost
@@ -185,13 +242,18 @@ async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
   };
 }
 
-async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Array<{url:string}>) {
+async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Array<{url:string;verification_status?:string}>) {
   let discovered=0,queued=0,alreadyKnown=0;
   const company=item.company;
-  for(const source of sources){
+  const prioritized=[...sources].sort((a,b)=>(b.verification_status==="verified"?1:0)-(a.verification_status==="verified"?1:0)).slice(0,3);
+  for(const source of prioritized){
     let host=""; try{host=new URL(source.url).hostname.toLowerCase();}catch{continue;}
-    const query=`site:${host} "${env.SEASON}" (intern OR internship OR co-op) (software OR engineering OR technology OR data OR security OR cloud OR "machine learning")`;
-    for(const row of await tavily(env,query,10)){
+    let rows=await directSourceResults(source.url,env.SEASON);
+    if(rows.length===0){
+      const query=`site:${host} "${env.SEASON}" (intern OR internship OR co-op) (software OR engineering OR technology OR data OR security OR cloud OR "machine learning")`;
+      rows=await tavily(env,query,10);
+    }
+    for(const row of rows){
       if(!row.url) continue;
       let u:URL; try{u=new URL(row.url);}catch{continue;}
       if(u.protocol!=="https:" || (!hostMatches(u.hostname.toLowerCase(),host) && !trustedAts(u.hostname.toLowerCase()))) continue;
@@ -213,7 +275,7 @@ async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Arr
 }
 
 export async function scanCompanyIntelligence(env: IntelligenceEnv) {
-  const due = await api(env,"/v1/internal/company-intelligence/due?limit=12") as {companies?:DueCompany[]};
+  const due = await api(env,"/v1/internal/company-intelligence/due?limit=6") as {companies?:DueCompany[]};
   let checked=0,successful=0,discovered=0,queued=0,alreadyKnown=0,failed=0,sourcesAdded=0;
 
   for(const item of due.companies??[]){
