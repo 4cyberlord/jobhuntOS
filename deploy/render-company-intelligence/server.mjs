@@ -291,10 +291,10 @@ const server = http.createServer(async (req,res) => {
 async function normalizeLegacyMisclassifiedCompany() {
   const bogusId = "cmp_74234e98afe7498f";
   const rows = await pool.query(
-    \`SELECT d.*, s.provider AS old_provider, s.verification_status AS old_verification
+    `SELECT d.*, s.provider AS old_provider, s.verification_status AS old_verification
      FROM internship_discoveries d
      LEFT JOIN career_sources s ON s.id=d.career_source_id
-     WHERE d.company_id=$1 ORDER BY d.id\`, [bogusId]
+     WHERE d.company_id=$1 ORDER BY d.id`, [bogusId]
   );
   if (!rows.rows.length) return;
 
@@ -358,21 +358,21 @@ async function normalizeLegacyMisclassifiedCompany() {
         dropped++; continue;
       }
       const companyId=stableCompanyId(target.name,target.website);
-      await db.query(\`INSERT INTO companies
+      await db.query(`INSERT INTO companies
         (id,canonical_name,website,technical_employer,priority,active,tech_departments,updated_at)
         VALUES($1,$2,$3,true,3,true,'{}'::text[],now())
         ON CONFLICT(id) DO UPDATE SET canonical_name=EXCLUDED.canonical_name,
-          website=COALESCE(companies.website,EXCLUDED.website),active=true,updated_at=now()\`,
+          website=COALESCE(companies.website,EXCLUDED.website),active=true,updated_at=now()`,
         [companyId,target.name,target.website]);
       const sourceUrl=d.canonical_url || d.apply_url;
       const host=hostOf(sourceUrl);
       const sourceId="src_"+crypto.createHash("sha256").update(companyId+"|"+sourceUrl).digest("hex").slice(0,20);
-      const sq=await db.query(\`INSERT INTO career_sources
+      const sq=await db.query(`INSERT INTO career_sources
         (id,company_id,url,host,source_type,provider,verification_status,active,metadata,updated_at)
         VALUES($1,$2,$3,$4,'posting_source',$5,$6,true,$7::jsonb,now())
         ON CONFLICT(company_id,url) DO UPDATE SET host=EXCLUDED.host,provider=EXCLUDED.provider,
           verification_status=EXCLUDED.verification_status,active=true,updated_at=now()
-        RETURNING id\`,
+        RETURNING id`,
         [sourceId,companyId,sourceUrl,host,d.old_provider||"custom",target.verified?"verified":"discovered",JSON.stringify({normalized_from_legacy_company:bogusId})]);
       await db.query("UPDATE internship_discoveries SET company_id=$1,career_source_id=$2,last_seen_at=now() WHERE id=$3",
         [companyId,sq.rows[0].id,d.id]);
