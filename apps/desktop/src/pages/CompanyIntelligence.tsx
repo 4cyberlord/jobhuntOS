@@ -5,7 +5,7 @@ import {
   ShieldCheckIcon, XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { readSyncConfig } from "../lib/syncConfig";
-import { openExternal } from "../lib/external";
+import { openExternal } from "../lib/tauri";
 import "./company-intelligence/company-intelligence.css";
 
 type Summary = { companies?:number; technical_employers?:number; active_companies?:number; companies_with_failures?:number; career_sources?:number; verified_sources?:number; failing_sources?:number };
