@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
 [triggers]
-crons = ["*/30 * * * *", "* * * * *"]
+crons = ["*/30 * * * *", "* * * * *", "7 */2 * * *"]
 
 [[kv_namespaces]]
 binding = "GATE_STATUS"
