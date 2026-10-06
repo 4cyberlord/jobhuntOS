@@ -8,6 +8,7 @@ import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
 import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
+import { companyWorkbookConfigured, syncCompanyIntelligenceWorkbook } from "./company-excel.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -52,7 +53,7 @@ export async function buildApp() {
   });
   app.addHook("onSend", async (_request, reply) => { reply.header("Cache-Control", "no-store"); });
   app.addHook("onRequest", async (request, reply) => {
-    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import")) return;
+    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import") && !request.url.startsWith("/v1/internal/company-intelligence/sync")) return;
     const expected = request.url.startsWith("/v1/internal/gate-bridge/import") ? process.env.GATE_BRIDGE_CRON_SECRET : process.env.CRON_SECRET;
     if (!sameKey(request.headers.authorization?.replace(/^Bearer\s+/i, ""), expected)) return reply.code(401).send({ error: "unauthorized" });
   });
@@ -93,6 +94,17 @@ export async function buildApp() {
   app.delete("/v1/desktop/outlook", async () => { await disconnectOutlook(); return { ok: true }; });
   app.post("/v1/internal/outlook/sync", async (_request, reply) => {
     try { return await pollOutlookInbox(); } catch (e) { await markOutlookSyncError(e); return reply.code(502).send({ error: e instanceof Error ? e.message : "Outlook sync failed." }); }
+  });
+  app.get("/v1/desktop/company-intelligence/excel/status", async () => ({ configured: companyWorkbookConfigured() }));
+  app.post("/v1/desktop/company-intelligence/excel/sync", async (_request, reply) => {
+    if (!companyWorkbookConfigured()) return reply.code(503).send({ error: "Company Intelligence workbook is not configured." });
+    try { return await syncCompanyIntelligenceWorkbook(); }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Workbook sync failed." }); }
+  });
+  app.post("/v1/internal/company-intelligence/sync", async (_request, reply) => {
+    if (!companyWorkbookConfigured()) return reply.code(503).send({ error: "Company Intelligence workbook is not configured." });
+    try { return await syncCompanyIntelligenceWorkbook(); }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Workbook sync failed." }); }
   });
   // Cloudflare invokes this every minute. The desktop never sees bridge URLs or credentials.
   app.post("/v1/internal/gate-bridge/import", async (request, reply) => {
