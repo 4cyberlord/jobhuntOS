@@ -235,6 +235,22 @@ const server = http.createServer(async (req,res) => {
       for(const alias of [...new Set(aliases)]) await pool.query("INSERT INTO company_aliases(company_id,alias,alias_type) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[id,String(alias),"name"]);
       return json(res,200,{ok:true,company:q.rows[0],matched_existing:!!existing,created:!existing});
     }
+    if (req.method === "POST" && url.pathname === "/v1/companies/scan-status") {
+      const b=await readBody(req);
+      const ok=b.ok!==false;
+      const row=await pool.query("SELECT priority FROM companies WHERE id=$1",[b.company_id]);
+      if(!row.rows[0]) return json(res,404,{error:"company_not_found"});
+      const p=Number(row.rows[0].priority??3);
+      const hours=p<=1?2:p===2?6:p===3?12:24;
+      const q=await pool.query(`UPDATE companies
+        SET last_checked_at=now(),
+            last_success_at=CASE WHEN $2 THEN now() ELSE last_success_at END,
+            next_check_at=now()+($3 || ' hours')::interval,
+            consecutive_failures=CASE WHEN $2 THEN 0 ELSE consecutive_failures+1 END,
+            updated_at=now()
+        WHERE id=$1 RETURNING *`,[b.company_id,ok,String(ok?hours:1)]);
+      return json(res,200,{ok:true,company:q.rows[0]});
+    }
     if (req.method === "POST" && url.pathname === "/v1/career-sources/upsert") {
       const b=await readBody(req);
       const before=await pool.query("SELECT id, verification_status FROM career_sources WHERE company_id=$1 AND url=$2 LIMIT 1",[b.company_id,b.url]);
