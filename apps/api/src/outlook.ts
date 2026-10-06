@@ -5,7 +5,7 @@ import { database } from "./repository.js";
 const CONNECTION = "owner";
 const SCOPES = "openid profile offline_access User.Read Mail.Read";
 type Token = { access_token: string; refresh_token?: string; expires_in: number; scope?: string };
-export type OutlookMessage = { id: string; internetMessageId?: string; conversationId?: string; subject: string; from?: { emailAddress: { address: string; name?: string } }; sender?: { emailAddress: { address: string; name?: string } }; receivedDateTime: string; bodyPreview?: string; headers?: { name: string; value: string }[] };
+export type OutlookMessage = { id: string; internetMessageId?: string; conversationId?: string; subject: string; from?: { emailAddress: { address: string; name?: string } }; sender?: { emailAddress: { address: string; name?: string } }; receivedDateTime: string; bodyPreview?: string; body?: { contentType: string; content: string }; headers?: { name: string; value: string }[] };
 
 function config() {
   const clientId = process.env.OUTLOOK_CLIENT_ID;
@@ -60,17 +60,17 @@ export async function completeOutlookAuthorization(code: string, state: string) 
 }
 export async function disconnectOutlook() { const d = await database(); await Promise.all([d.collection<any>("outlook_connections").deleteOne({ _id: CONNECTION }), d.collection<any>("outlook_queue").deleteMany({ connection: CONNECTION })]); }
 
-/** Poll one Graph delta page and queue only minimal metadata; raw message bodies are never stored. */
+/** Poll one Graph delta page; transient queue stores text until processed, then immediately deleted. */
 export async function pollOutlookInbox() {
   const { token, row } = await graphAccess(); const cursor = row?.deltaLink as string | undefined;
-  const path = cursor ?? "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$top=50&$select=id,internetMessageId,conversationId,subject,from,sender,receivedDateTime,bodyPreview";
+  const path = cursor ?? "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$top=50&$select=id,internetMessageId,conversationId,subject,from,sender,receivedDateTime,bodyPreview,body";
   const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
   if (!r.ok) throw new Error(r.status === 429 ? "Microsoft is rate limiting mailbox sync. Try again shortly." : `Microsoft Graph returned ${r.status}.`);
   const page = await r.json() as { value?: (OutlookMessage & { "@removed"?: unknown })[]; "@odata.nextLink"?: string; "@odata.deltaLink"?: string };
   const d = await database(); const q = d.collection<any>("outlook_queue"); let added = 0;
   for (const m of page.value ?? []) {
     if (!m.id || m["@removed"]) continue;
-    try { await q.insertOne({ _id: `${CONNECTION}:${m.id}`, connection: CONNECTION, message: m, fetchedAt: new Date(), acknowledgedAt: null, expiresAt: new Date(Date.now() + 7 * 86_400_000) }); added++; } catch (e) { if ((e as { code?: number }).code !== 11000) throw e; }
+    try { await q.insertOne({ _id: `${CONNECTION}:${m.id}`, connection: CONNECTION, message: m, fetchedAt: new Date(), acknowledgedAt: null, expiresAt: new Date(Date.now() + 24 * 3600_000) }); added++; } catch (e) { if ((e as { code?: number }).code !== 11000) throw e; }
   }
   await d.collection<any>("outlook_connections").updateOne({ _id: CONNECTION }, { $set: { deltaLink: page["@odata.deltaLink"] ?? page["@odata.nextLink"] ?? cursor, lastSyncAt: new Date(), lastSyncError: null } });
   return { fetched: (page.value ?? []).length, added };
@@ -80,4 +80,8 @@ export async function markOutlookSyncError(error: unknown) {
   await (await database()).collection<any>("outlook_connections").updateOne({ _id: CONNECTION }, { $set: { lastSyncError: message, lastSyncAt: new Date() } });
 }
 export async function queuedOutlookMessages() { return (await (await database()).collection<any>("outlook_queue").find({ connection: CONNECTION, acknowledgedAt: null }).sort({ fetchedAt: 1 }).limit(100).toArray()).map((x) => x.message as OutlookMessage); }
-export async function acknowledgeOutlookMessages(ids: string[]) { if (!ids.length) return; await (await database()).collection<any>("outlook_queue").updateMany({ _id: { $in: ids.map((id) => `${CONNECTION}:${id}`) } }, { $set: { acknowledgedAt: new Date() } }); }
+export async function acknowledgeOutlookMessages(ids: string[]) {
+  if (!ids.length) return;
+  // Option 1: Immediately delete acknowledged messages from DB so raw emails are never permanently stored
+  await (await database()).collection<any>("outlook_queue").deleteMany({ _id: { $in: ids.map((id) => `${CONNECTION}:${id}`) } });
+}

@@ -2,7 +2,7 @@
 // Microsoft retrieval is server-owned; this module only applies queued email metadata to local workspace state.
 import type { AppData, AppNotification, AssessmentKind, CalEvent, Job, Status, Task } from "./types";
 import { classifyEmail, type EmailLabel } from "./emailClassifier";
-import { matchEmailToJobOrGate } from "./emailMatcher";
+import { matchEmailToJobOrGate, isAmbiguousMatch } from "./emailMatcher";
 import { isOpen, approve as approveGate } from "./gate";
 import type { GateStatus } from "@job-hunt-os/contracts";
 import { DAY, uid } from "./format";
@@ -119,10 +119,20 @@ export async function syncEmails(data: AppData, opts: { dryRun?: boolean; messag
     const schedule = cls.schedule;
 
     // Always require a match to an existing Job/Gate for auto-move (never create new Job from email)
-    const matched = matchEmailToJobOrGate({ ...data, gate, jobs } as AppData, { subject: subj, body, from, bodyPreview: m.bodyPreview });
-    const lowConfidence = cls.confidence < AUTO_THRESHOLD;
-    const needsConfirm = cls.confidence >= CONFIRM_THRESHOLD && cls.confidence < AUTO_THRESHOLD;
-    const shouldAuto = !!targetStatus && cls.confidence >= AUTO_THRESHOLD && !!matched;
+    const emailInfo = { subject: subj, body, from, bodyPreview: m.bodyPreview };
+    const matched = matchEmailToJobOrGate({ ...data, gate, jobs } as AppData, emailInfo);
+    const ambiguous = matched ? isAmbiguousMatch({ ...data, gate, jobs } as AppData, emailInfo, matched) : false;
+
+    // Strong auto-move requires BOTH high classification confidence and high match confidence (unambiguous)
+    const shouldAuto = !!targetStatus && 
+      cls.confidence >= AUTO_THRESHOLD && 
+      !!matched && 
+      matched.score >= 0.85 && 
+      !ambiguous;
+
+    const needsConfirm = !!matched && 
+      !shouldAuto && 
+      (cls.confidence >= CONFIRM_THRESHOLD && matched.score >= 0.60);
 
     // Newsletter / unrelated -> skip with no side effects (but mark processed to avoid re-scanning)
     if (cls.label === "newsletter" || cls.label === "unrelated") {
@@ -206,12 +216,26 @@ export async function syncEmails(data: AppData, opts: { dryRun?: boolean; messag
         const jc = matched.kind === "job" ? jobs.find((j) => j.id === matched.id) : undefined;
         const gc = matched.kind === "gate" ? gate.find((g) => g.id === matched.id) : undefined;
         const company = jc?.company ?? gc?.envelope.company.name ?? from;
+        // Even without auto-move: create calendar if date found in assessment/interview email
+        let ev: CalEvent | null = null;
+        if ((cls.label === "assessment_invite" || cls.label === "interview_invite") && (schedule?.start || schedule?.link)) {
+          ev = ensureCalendar(jc?.id, company);
+        }
+        // Always create a task for assessment deadlines found in email
+        if (cls.label === "assessment_invite" && schedule?.start) {
+          tasks.unshift({ id: uid(), title: `Complete assessment — ${company}`, subtitle: schedule.raw ?? `Due ${new Date(schedule.start).toLocaleDateString()}`, dueAt: schedule.start, priority: "High", icon: "calendar", done: false, jobId: jc?.id });
+        }
+        // Deadline reminders always create a task regardless of match confidence
+        if (cls.label === "deadline_reminder" && schedule?.start) {
+          tasks.unshift({ id: uid(), title: `Deadline: ${subj.slice(0, 60)}`, subtitle: `From ${from}`, dueAt: schedule.start, priority: "High", icon: "calendar", done: false, jobId: jc?.id });
+        }
         addNotification({
           title: `Possible ${targetStatus === "assessment" ? "assessment" : targetStatus} — confirm`,
-          body: `${provenance} suggests moving ${company} to ${stageName(targetStatus)} (confidence ${(cls.confidence * 100).toFixed(0)}%). Open the job to confirm.`,
+          body: `${provenance} suggests moving ${company} to ${stageName(targetStatus)} (confidence ${(cls.confidence * 100).toFixed(0)}%).${ev ? ` Calendar added: ${ev.title} on ${new Date(ev.start).toLocaleString()}.` : ""} Open the job to confirm the stage change.`,
           chip: "Review",
           kind: cls.label === "assessment_invite" ? "assessment" : "email_sync",
           jobId: jc?.id,
+          eventId: ev?.id,
         });
         newProcessed.push(msgId);
         result.processed++;
