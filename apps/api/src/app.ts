@@ -8,7 +8,7 @@ import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
 import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, workspaceCompaniesForIntelligence, linkWorkspaceCompanyIntelligence, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
-import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery, resolveIntelligenceCompany, notifyCompanyIntelligenceLifecycle } from "./company-intelligence.js";
+import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery, resolveIntelligenceCompany, upsertIntelligenceCompany, notifyCompanyIntelligenceLifecycle } from "./company-intelligence.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -118,14 +118,20 @@ export async function buildApp() {
       try {
         const website = typeof doc.website === "string" ? doc.website : undefined;
         const match = await resolveIntelligenceCompany({ name, website });
-        if (!match?.company.id) {
+        const resolved = match?.company.id ? match : await upsertIntelligenceCompany({
+          name,
+          website,
+          industry: typeof doc.industry === "string" ? doc.industry : undefined,
+          headquarters: typeof doc.hq === "string" ? doc.hq : undefined,
+        }).then((created) => ({ company: created.company, matched_by: created.created ? "created_from_workspace" : "upsert", confidence: created.created ? 0.9 : 0.95 }));
+        if (!resolved?.company.id) {
           unresolved++;
           results.push({ local_id: row.id, name, status: "unresolved" });
           continue;
         }
-        await linkWorkspaceCompanyIntelligence(row.id, match.company.id);
+        await linkWorkspaceCompanyIntelligence(row.id, resolved.company.id);
         linked++;
-        results.push({ local_id: row.id, name, intelligence_id: match.company.id, status: "linked", matched_by: match.matched_by, confidence: match.confidence });
+        results.push({ local_id: row.id, name, intelligence_id: resolved.company.id, status: "linked", matched_by: resolved.matched_by, confidence: resolved.confidence });
       } catch {
         unresolved++;
         results.push({ local_id: row.id, name, status: "unresolved" });
@@ -138,6 +144,22 @@ export async function buildApp() {
       unresolved,
     }).catch(() => undefined);
     return { ok: true, total: rows.length, linked, already_linked: alreadyLinked, unresolved, results };
+  });
+  app.post("/v1/desktop/company-intelligence/backfill", async (_request, reply) => {
+    if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
+    const d = await database();
+    const rows = await d.collection("gate_opportunities").find({}, { projection: { envelope: 1, gate_opportunity_id: 1, external_id: 1 } }).sort({ updatedAt: 1 }).limit(5000).toArray();
+    let processed = 0, failed = 0;
+    for (const row of rows) {
+      const envelope = row.envelope as unknown;
+      if (!envelope || typeof envelope !== "object") { failed++; continue; }
+      try {
+        await recordIntelligenceDiscovery(envelope as never, String(row.gate_opportunity_id ?? row.external_id ?? row._id));
+        processed++;
+      } catch { failed++; }
+    }
+    await notifyCompanyIntelligenceLifecycle("backfill_complete", { records: rows.length, processed, failed }).catch(() => undefined);
+    return { ok: true, records: rows.length, processed, failed };
   });
   app.get("/v1/desktop/company-intelligence/:id", async (request, reply) => {
     if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
