@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: jobhunt-company-intelligence-api
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: deploy/render-company-intelligence
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobhunt-company-intelligence
+          property: connectionString
+      - key: COMPANY_INTELLIGENCE_WRITE_TOKEN
+        generateValue: true
