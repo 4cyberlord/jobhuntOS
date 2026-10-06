@@ -3,6 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { agentOpportunitySchema, containsSensitiveKey, duplicateKey, GATE_STATUSES, normalizeIncoming, parseGatePayload, searchProfile, type LegacyGate } from "@job-hunt-os/contracts";
 import { timingSafeEqual } from "node:crypto";
+import { ObjectId } from "mongodb";
 import { verifyPassword } from "./auth.js";
 import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
 import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, workspaceCompaniesForIntelligence, linkWorkspaceCompanyIntelligence, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
@@ -21,6 +22,81 @@ export function gateIngestView(r: GateIngestResult, includeOpportunity: boolean)
     desktop: { status: r.discarded ? "unavailable" : "available" },
   };
   return { legacy, stored, delivery, ...(includeOpportunity && r.opportunity ? { opportunity: r.opportunity } : {}) };
+}
+
+
+async function bootstrapCompanyIntelligenceChunk() {
+  if (!companyIntelligenceConfigured()) return { companies_linked: 0, gate_backfilled: 0, complete: false };
+  const d = await database();
+  const state = (await d.collection("company_intelligence_state").findOne({ _id: "bootstrap" } as never)) as {
+    gate_cursor?: string;
+    gate_done?: boolean;
+  } | null;
+
+  let companiesLinked = 0;
+  const companies = (await workspaceCompaniesForIntelligence())
+    .filter((row) => !(typeof row.doc?.intelligenceId === "string" && row.doc.intelligenceId))
+    .slice(0, 5);
+
+  for (const row of companies) {
+    const doc = row.doc ?? {};
+    const name = typeof doc.name === "string" ? doc.name.trim() : "";
+    if (!name) continue;
+    try {
+      const website = typeof doc.website === "string" ? doc.website : undefined;
+      const match = await resolveIntelligenceCompany({ name, website });
+      const resolved = match?.company.id ? match.company : (await upsertIntelligenceCompany({
+        name,
+        website,
+        industry: typeof doc.industry === "string" ? doc.industry : undefined,
+        headquarters: typeof doc.hq === "string" ? doc.hq : undefined,
+      })).company;
+      if (resolved?.id && await linkWorkspaceCompanyIntelligence(row.id, resolved.id)) companiesLinked++;
+    } catch {
+      // Best-effort. An unlinked company remains eligible on the next minute.
+    }
+  }
+
+  let gateBackfilled = 0;
+  let gateCursor = state?.gate_cursor;
+  let gateDone = !!state?.gate_done;
+  if (!gateDone) {
+    const query = gateCursor && ObjectId.isValid(gateCursor) ? { _id: { $gt: new ObjectId(gateCursor) } } : {};
+    const rows = await d.collection("gate_opportunities")
+      .find(query, { projection: { envelope: 1 } })
+      .sort({ _id: 1 })
+      .limit(10)
+      .toArray();
+
+    for (const row of rows) {
+      const envelope = row.envelope as unknown;
+      if (!envelope || typeof envelope !== "object") {
+        gateCursor = String(row._id);
+        continue;
+      }
+      try {
+        await recordIntelligenceDiscovery(envelope as never, String(row._id));
+        gateCursor = String(row._id);
+        gateBackfilled++;
+      } catch {
+        // Preserve the cursor so transient auth/network failures retry this row next minute.
+        break;
+      }
+    }
+    if (rows.length === 0) gateDone = true;
+  }
+
+  await d.collection("company_intelligence_state").updateOne(
+    { _id: "bootstrap" } as never,
+    { $set: { gate_cursor: gateCursor ?? null, gate_done: gateDone, last_run_at: new Date(), companies_linked_last_run: companiesLinked, gate_backfilled_last_run: gateBackfilled } },
+    { upsert: true },
+  );
+
+  if (gateDone && companies.length === 0) {
+    await notifyCompanyIntelligenceLifecycle("bootstrap_complete", { companies_linked: companiesLinked, gate_backfilled: gateBackfilled }).catch(() => undefined);
+  }
+
+  return { companies_linked: companiesLinked, gate_backfilled: gateBackfilled, complete: gateDone && companies.length === 0 };
 }
 
 /** Builds the API without listening, so it can run as a local server or inside a serverless function. */
@@ -168,7 +244,14 @@ export async function buildApp() {
   });
   // Cloudflare invokes this every minute. The desktop never sees bridge URLs or credentials.
   app.post("/v1/internal/gate-bridge/import", async (request, reply) => {
-    try { return await importGateBridge(); }
+    try {
+      const imported = await importGateBridge();
+      const company_intelligence = await bootstrapCompanyIntelligenceChunk().catch((e) => {
+        request.log.warn({ err: e instanceof Error ? e.message : String(e) }, "company intelligence bootstrap chunk failed");
+        return { companies_linked: 0, gate_backfilled: 0, complete: false };
+      });
+      return { imported, company_intelligence };
+    }
     catch (e) {
       request.log.error({ err: e instanceof Error ? e.message : "Bridge import failed." }, "gate bridge import failed");
       return reply.code(502).send({ error: e instanceof Error ? e.message : "Bridge import failed." });
