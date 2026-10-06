@@ -1,4 +1,4 @@
-import { federatedSearch } from "./provider-broker";
+import { federatedCrawl, federatedSearch } from "./provider-broker";
 export type IntelligenceCandidate = {
   url: string;
   title?: string;
@@ -137,31 +137,49 @@ const stripHtml = (html: string) => html
   .replace(/\s+/g," ")
   .trim();
 
-async function directSourceResults(sourceUrl: string, season: string): Promise<SearchResult[]> {
+async function directSourceResults(env: IntelligenceEnv, sourceUrl: string, season: string): Promise<SearchResult[]> {
   let base: URL;
   try { base=new URL(sourceUrl); } catch { return []; }
-  const r=await fetch(sourceUrl,{headers:{"user-agent":"GATE-Company-Intelligence/5.0","accept":"text/html,application/xhtml+xml"}});
-  if(!r.ok) return [];
-  const length=Number(r.headers.get("content-length")||0);
-  if(length>1_500_000) return [];
-  const html=await r.text();
-  if(html.length>1_500_000) return [];
+  let html="";
+  try {
+    const r=await fetch(sourceUrl,{headers:{"user-agent":"GATE-Company-Intelligence/5.0","accept":"text/html,application/xhtml+xml"}});
+    if(r.ok){
+      const length=Number(r.headers.get("content-length")||0);
+      if(length<=1_500_000){
+        const body=await r.text();
+        if(body.length<=1_500_000) html=body;
+      }
+    }
+  } catch {}
   const rows:SearchResult[]=[];
   const seen=new Set<string>();
   const year=(season.match(/20\d{2}/)||[])[0]||"2027";
-  const re=/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  for(let m:RegExpExecArray|null;(m=re.exec(html))&&rows.length<30;){
-    let url:URL; try{url=new URL(m[1],base);}catch{continue;}
-    if(url.protocol!=="https:"||!hostMatches(url.hostname.toLowerCase(),base.hostname.toLowerCase())) continue;
-    const title=stripHtml(m[2]||"");
+  const add=(raw:string,titleRaw="")=>{
+    let url:URL; try{url=new URL(raw,base);}catch{return;}
+    if(url.protocol!=="https:"||!hostMatches(url.hostname.toLowerCase(),base.hostname.toLowerCase())) return;
+    const title=stripHtml(titleRaw||"");
     const hay=`${title} ${url.pathname}`.toLowerCase();
-    if(!hay.includes(year)) continue;
-    if(!/intern|internship|co-op|student|early.career/.test(hay)) continue;
-    if(!TECH_TERMS.some((term)=>hay.includes(term.split(" ")[0]))&&!/software|engineer|technology|data|security|cloud|platform|developer|machine/.test(hay)) continue;
+    if(!hay.includes(year)||!/intern|internship|co-op|student|early.career/.test(hay)) return;
+    if(!TECH_TERMS.some((term)=>hay.includes(term.split(" ")[0]))&&!/software|engineer|technology|data|security|cloud|platform|developer|machine/.test(hay)) return;
     const clean=canonicalUrl(url.toString());
-    if(seen.has(clean)) continue;
-    seen.add(clean);
-    rows.push({url:clean,title});
+    if(seen.has(clean)) return;
+    seen.add(clean); rows.push({url:clean,title});
+  };
+  if(html){
+    const re=/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    for(let m:RegExpExecArray|null;(m=re.exec(html))&&rows.length<30;) add(m[1],m[2]||"");
+  }
+  if(rows.length===0){
+    const crawled=await federatedCrawl(env,sourceUrl);
+    for(const raw of crawled.links){
+      if(typeof raw==="string") add(raw,"");
+      else if(raw&&typeof raw==="object") add(String((raw as any).url||(raw as any).href||""),String((raw as any).title||""));
+      if(rows.length>=30) break;
+    }
+    if(rows.length===0&&crawled.content){
+      const md=/\[([^\]]{1,240})\]\((https?:\/\/[^)\s]+)\)/g;
+      for(let m:RegExpExecArray|null;(m=md.exec(crawled.content))&&rows.length<30;) add(m[2],m[1]);
+    }
   }
   return rows;
 }
@@ -253,7 +271,7 @@ async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Arr
   const prioritized=[...sources].sort((a,b)=>(b.verification_status==="verified"?1:0)-(a.verification_status==="verified"?1:0)).slice(0,3);
   for(const source of prioritized){
     let host=""; try{host=new URL(source.url).hostname.toLowerCase();}catch{continue;}
-    let rows=await directSourceResults(source.url,env.SEASON);
+    let rows=await directSourceResults(env,source.url,env.SEASON);
     if(rows.length===0){
       const query=`site:${host} "${env.SEASON}" (intern OR internship OR co-op) (software OR engineering OR technology OR data OR security OR cloud OR "machine learning")`;
       rows=await searchWeb(env,query,10);
