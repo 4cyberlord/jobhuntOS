@@ -9,6 +9,7 @@ import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPe
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
 import { companyWorkbookConfigured, syncCompanyIntelligenceWorkbook } from "./company-excel.js";
+import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery } from "./company-intelligence.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -95,6 +96,17 @@ export async function buildApp() {
   app.post("/v1/internal/outlook/sync", async (_request, reply) => {
     try { return await pollOutlookInbox(); } catch (e) { await markOutlookSyncError(e); return reply.code(502).send({ error: e instanceof Error ? e.message : "Outlook sync failed." }); }
   });
+  app.get("/v1/desktop/company-intelligence/status", async () => ({ configured: companyIntelligenceConfigured() }));
+  app.get("/v1/desktop/company-intelligence", async (_request, reply) => {
+    if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
+    try { return await companyIntelligenceView(); }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Company Intelligence is unavailable." }); }
+  });
+  app.get("/v1/desktop/company-intelligence/:id", async (request, reply) => {
+    if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
+    try { return await companyIntelligenceDetail((request.params as { id: string }).id); }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Company Intelligence is unavailable." }); }
+  });
   app.get("/v1/desktop/company-intelligence/excel/status", async () => ({ configured: companyWorkbookConfigured() }));
   app.post("/v1/desktop/company-intelligence/excel/sync", async (_request, reply) => {
     if (!companyWorkbookConfigured()) return reply.code(503).send({ error: "Company Intelligence workbook is not configured." });
@@ -166,7 +178,21 @@ export async function buildApp() {
     let singleView: ReturnType<typeof gateIngestView> | undefined;
     const summary = { received: parsed.received, valid: parsed.items.length, invalid: parsed.errors.length, created: 0, duplicates: 0, discarded: 0 };
     for (const { index, item } of parsed.indexedItems) {
-      const r = await ingestGate(item);
+      let enriched = item;
+      if (companyIntelligenceConfigured()) {
+        try {
+          const intelligenceId = await ensureIntelligenceCompany(item);
+          enriched = { ...item, company: { ...item.company, intelligence_id: intelligenceId } };
+        } catch (e) {
+          request.log.warn({ err: e instanceof Error ? e.message : String(e), company: item.company.name }, "company intelligence resolution failed");
+        }
+      }
+      const r = await ingestGate(enriched);
+      if (!r.discarded && companyIntelligenceConfigured()) {
+        await recordIntelligenceDiscovery(enriched, r.gate_opportunity_id).catch((e) =>
+          request.log.warn({ err: e instanceof Error ? e.message : String(e), company: enriched.company.name }, "company intelligence discovery write failed")
+        );
+      }
       if (r.discarded) summary.discarded++; else if (r.duplicate) summary.duplicates++; else summary.created++;
       const view = gateIngestView(r, false);
       if (!parsed.isBatch) singleView = gateIngestView(r, true);
@@ -194,7 +220,15 @@ export async function buildApp() {
       const at = raw.received_at && !Number.isNaN(Date.parse(raw.received_at)) ? new Date(raw.received_at) : undefined;
       const n = normalizeIncoming(raw, { at });
       if (!n.ok) { summary.invalid++; results.push({ ok: false, error: n.error }); continue; }
-      const r = await ingestGate(n.envelope, { telegramDelivered: notify === false });
+      let envelope = n.envelope;
+      if (companyIntelligenceConfigured()) {
+        try {
+          const intelligenceId = await ensureIntelligenceCompany(envelope);
+          envelope = { ...envelope, company: { ...envelope.company, intelligence_id: intelligenceId } };
+        } catch { /* intelligence is additive; legacy ingestion remains available */ }
+      }
+      const r = await ingestGate(envelope, { telegramDelivered: notify === false });
+      if (!r.discarded && companyIntelligenceConfigured()) await recordIntelligenceDiscovery(envelope, r.gate_opportunity_id).catch(() => undefined);
       if (r.duplicate) summary.duplicates++; else summary.created++;
       if (r.created && list.length === 1) await Promise.race([enrichCompanyById(r.gate_opportunity_id), new Promise((res) => setTimeout(res, 6000))]).catch(() => undefined);
     results.push({ ok: true, gate_opportunity_id: r.gate_opportunity_id, gate_status: r.gate_status, duplicate: r.duplicate, telegram_status: r.telegram?.status });
