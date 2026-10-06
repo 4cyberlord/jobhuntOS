@@ -8,7 +8,7 @@ import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
 import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, workspaceCompaniesForIntelligence, linkWorkspaceCompanyIntelligence, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
-import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery, resolveIntelligenceCompany } from "./company-intelligence.js";
+import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery, resolveIntelligenceCompany, notifyCompanyIntelligenceLifecycle } from "./company-intelligence.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -131,6 +131,12 @@ export async function buildApp() {
         results.push({ local_id: row.id, name, status: "unresolved" });
       }
     }
+    await notifyCompanyIntelligenceLifecycle("reconciliation_complete", {
+      total: rows.length,
+      linked,
+      already_linked: alreadyLinked,
+      unresolved,
+    }).catch(() => undefined);
     return { ok: true, total: rows.length, linked, already_linked: alreadyLinked, unresolved, results };
   });
   app.get("/v1/desktop/company-intelligence/:id", async (request, reply) => {
