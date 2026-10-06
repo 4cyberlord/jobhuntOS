@@ -24,7 +24,7 @@ function token() {
   if (!value) throw new Error("COMPANY_INTELLIGENCE_WRITE_TOKEN is not configured.");
   return value;
 }
-async function relayLifecycle(phase: string, fields: Record<string, unknown>) {
+export async function notifyCompanyIntelligenceLifecycle(phase: string, fields: Record<string, unknown>) {
   const url = process.env.LIFECYCLE_RELAY_URL?.trim();
   const eventToken = process.env.LIFECYCLE_EVENT_TOKEN?.trim();
   if (!url || !eventToken) return;
@@ -96,7 +96,7 @@ export async function ensureIntelligenceCompany(e: GateEnvelope) {
     headquarters: company.headquarters,
   });
   if (created.created) {
-    await relayLifecycle("company_discovered", {
+    await notifyCompanyIntelligenceLifecycle("company_discovered", {
       company: created.company.canonical_name,
       company_id: created.company.id,
       website: created.company.website ?? null,
@@ -130,7 +130,7 @@ export async function registerCareerSource(e: GateEnvelope, companyId: string) {
   const result = await readJson<SourceUpsertResult>(r);
   const verified = e.source.official || e.original_posting?.official_source;
   if (result.created) {
-    await relayLifecycle("career_source_added", {
+    await notifyCompanyIntelligenceLifecycle("career_source_added", {
       company: e.company.name,
       company_id: companyId,
       provider,
@@ -139,7 +139,7 @@ export async function registerCareerSource(e: GateEnvelope, companyId: string) {
       verified,
     });
   } else if (verified && result.previous_verification_status !== "verified") {
-    await relayLifecycle("career_source_verified", {
+    await notifyCompanyIntelligenceLifecycle("career_source_verified", {
       company: e.company.name,
       company_id: companyId,
       provider,
