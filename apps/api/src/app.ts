@@ -9,7 +9,7 @@ import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
 import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, workspaceCompaniesForIntelligence, linkWorkspaceCompanyIntelligence, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
-import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery, resolveIntelligenceCompany, upsertIntelligenceCompany, notifyCompanyIntelligenceLifecycle } from "./company-intelligence.js";
+import { applyCompanyIntelligenceEnrichment, companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceDue, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery, resolveIntelligenceCompany, upsertIntelligenceCompany, notifyCompanyIntelligenceLifecycle } from "./company-intelligence.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
 
@@ -129,8 +129,8 @@ export async function buildApp() {
   });
   app.addHook("onSend", async (_request, reply) => { reply.header("Cache-Control", "no-store"); });
   app.addHook("onRequest", async (request, reply) => {
-    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import")) return;
-    const expected = request.url.startsWith("/v1/internal/gate-bridge/import") ? process.env.GATE_BRIDGE_CRON_SECRET : process.env.CRON_SECRET;
+    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import") && !request.url.startsWith("/v1/internal/company-intelligence/")) return;
+    const expected = request.url.startsWith("/v1/internal/gate-bridge/import") || request.url.startsWith("/v1/internal/company-intelligence/") ? process.env.GATE_BRIDGE_CRON_SECRET : process.env.CRON_SECRET;
     if (!sameKey(request.headers.authorization?.replace(/^Bearer\s+/i, ""), expected)) return reply.code(401).send({ error: "unauthorized" });
   });
   // Sign-in for the desktop app: the owner's email + password (stored as a salted hash in the database) buy a session token.
@@ -242,6 +242,36 @@ export async function buildApp() {
     try { return await companyIntelligenceDetail((request.params as { id: string }).id); }
     catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Company Intelligence is unavailable." }); }
   });
+  app.get("/v1/internal/company-intelligence/due", async (request, reply) => {
+    const q = z.object({ limit: z.coerce.number().int().min(1).max(25).optional() }).safeParse(request.query);
+    if (!q.success) return reply.code(422).send({ error: "invalid_query" });
+    try { return { ok: true, companies: await companyIntelligenceDue(q.data.limit ?? 10) }; }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "company_intelligence_due_failed" }); }
+  });
+  app.post("/v1/internal/company-intelligence/enrich", async (request, reply) => {
+    const body = z.object({
+      company_id: z.string().min(1).max(120),
+      name: z.string().min(1).max(240),
+      legal_name: z.string().max(260).nullish(),
+      website: z.string().url().max(600).nullish(),
+      industry: z.string().max(160).nullish(),
+      headquarters: z.string().max(180).nullish(),
+      aliases: z.array(z.string().min(1).max(200)).max(20).optional(),
+      priority: z.number().int().min(1).max(5).optional(),
+      ok: z.boolean().optional(),
+      career_sources: z.array(z.object({
+        url: z.string().url().max(1000),
+        provider: z.string().max(80).optional(),
+        verification_status: z.enum(["discovered","verified"]).optional(),
+        source_type: z.string().max(80).optional(),
+        evidence_url: z.string().url().max(1000).nullish(),
+      })).max(30).optional(),
+    }).safeParse(request.body);
+    if (!body.success) return reply.code(422).send({ error: "invalid_payload", details: body.error.flatten() });
+    try { return await applyCompanyIntelligenceEnrichment(body.data); }
+    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "company_intelligence_enrichment_failed" }); }
+  });
+
   // Cloudflare invokes this every minute. The desktop never sees bridge URLs or credentials.
   app.post("/v1/internal/gate-bridge/import", async (request, reply) => {
     try {
