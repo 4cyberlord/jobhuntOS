@@ -149,3 +149,40 @@ YAERIS_API_KEY
 ```
 
 This keeps provider credentials out of source control and gives the deployment pipeline one controlled place to install or rotate integrations.
+
+
+## Durable discovery staging inbox
+
+Discovery is intentionally decoupled from research and delivery. Search providers write lightweight candidate metadata into D1 first; the Worker drains that inbox into the existing Cloudflare Queue at a controlled rate.
+
+Flow:
+
+```text
+Tavily / Exa / Firecrawl / other search providers
+                    |
+                    v
+          D1 discovery_candidates
+          + discovery_sources
+                    |
+        claim with 5-minute lease
+                    |
+                    v
+          Cloudflare CANDIDATES Queue
+                    |
+                    v
+      official posting verification/research
+                    |
+                    v
+          Railway delivery gateway
+                    |
+                    v
+       Job Hunt OS import -> MongoDB
+```
+
+The staging inbox uses the canonical URL SHA-256 as its durable identity. Repeated sightings from different providers update one candidate row while `discovery_sources` preserves provider provenance and seen counts. Before a staged row is queued, the Worker checks `gate_journal`; anything already known is marked `already_known` instead of being handed off again.
+
+Candidate states are `pending`, `claimed`, `queued`, `retrying`, `already_known`, `completed`, and `rejected`. Claims have a five-minute lease so an interrupted drain can be recovered without permanently stranding work.
+
+The minute scheduler now performs three independent recovery/flow-control jobs: bridge import, GATE retry recovery, and draining up to five staged candidates into the research queue. The protected `POST /internal/candidates` endpoint accepts either one candidate or a batch and stages them rather than bypassing the inbox. `GET /staging/status` exposes non-secret queue counts and provider provenance totals; `POST /internal/staging/drain` is an operator-only manual drain.
+
+Migration `0004_discovery_staging.sql` creates the staging tables and indexes. The Cloudflare deployment workflow applies pending D1 migrations before deploying the Worker.
