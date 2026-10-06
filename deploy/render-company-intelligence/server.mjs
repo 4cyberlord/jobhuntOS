@@ -215,10 +215,11 @@ const server = http.createServer(async (req,res) => {
          b.technical_employer!==false,b.priority??3,b.active!==false,b.fortune_500??null,b.sp_500??null,b.tech_departments??[]]);
       const aliases=[b.name,b.canonical_name,b.legal_name,...(Array.isArray(b.aliases)?b.aliases:[])].filter(Boolean);
       for(const alias of [...new Set(aliases)]) await pool.query("INSERT INTO company_aliases(company_id,alias,alias_type) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[id,String(alias),"name"]);
-      return json(res,200,{ok:true,company:q.rows[0],matched_existing:!!existing});
+      return json(res,200,{ok:true,company:q.rows[0],matched_existing:!!existing,created:!existing});
     }
     if (req.method === "POST" && url.pathname === "/v1/career-sources/upsert") {
       const b=await readBody(req);
+      const before=await pool.query("SELECT id, verification_status FROM career_sources WHERE company_id=$1 AND url=$2 LIMIT 1",[b.company_id,b.url]);
       const q=await pool.query(`INSERT INTO career_sources
         (id,company_id,url,host,source_type,provider,verification_status,active,metadata,updated_at)
         VALUES ($1,$2,$3,$4,COALESCE($5,'careers'),COALESCE($6,'custom'),COALESCE($7,'discovered'),COALESCE($8,true),COALESCE($9,'{}'::jsonb),now())
@@ -226,7 +227,7 @@ const server = http.createServer(async (req,res) => {
         verification_status=EXCLUDED.verification_status,active=EXCLUDED.active,metadata=EXCLUDED.metadata,updated_at=now()
         RETURNING *`,
         [b.id,b.company_id,b.url,b.host,b.source_type??"careers",b.provider??"custom",b.verification_status??"discovered",b.active!==false,b.metadata??{}]);
-      return json(res,200,{ok:true,source:q.rows[0]});
+      return json(res,200,{ok:true,source:q.rows[0],created:before.rows.length===0,previous_verification_status:before.rows[0]?.verification_status??null});
     }
     if (req.method === "POST" && url.pathname === "/v1/discoveries/upsert") {
       const b=await readBody(req);
