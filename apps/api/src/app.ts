@@ -8,7 +8,6 @@ import { updateFor, type LatestJson, type ReleaseAsset } from "./updates.js";
 import { audit, authBlocked, claimPendingDeliveries, enrichCompanyById, enrichPending, database, gateDecisions, gateForDesktop, ingestGate, recordAuthFailure, recordDelivery, agentKeyOk, getGithub, createSession, endSession, getOwner, sessionValid, setGateStatus, upsertPending, WORKSPACE_COLLECTIONS, workspaceSync, workspaceCompaniesForIntelligence, linkWorkspaceCompanyIntelligence, FILE_CHUNK, commitFile, fileMeta, getFileChunk, putFileChunk, removeFile, type GateIngestResult } from "./repository.js";
 import { acknowledgeOutlookMessages, beginOutlookAuthorization, completeOutlookAuthorization, disconnectOutlook, markOutlookSyncError, outlookStatus, pollOutlookInbox, queuedOutlookMessages } from "./outlook.js";
 import { importGateBridge } from "./gate-bridge.js";
-import { companyWorkbookConfigured, syncCompanyIntelligenceWorkbook } from "./company-excel.js";
 import { companyIntelligenceConfigured, companyIntelligenceDetail, companyIntelligenceView, ensureIntelligenceCompany, recordIntelligenceDiscovery } from "./company-intelligence.js";
 
 const sameKey = (given: string | undefined, wanted: string | undefined) => { if (!given || !wanted) return false; const a = Buffer.from(given), b = Buffer.from(wanted); return a.length === b.length && timingSafeEqual(a, b); };
@@ -54,7 +53,7 @@ export async function buildApp() {
   });
   app.addHook("onSend", async (_request, reply) => { reply.header("Cache-Control", "no-store"); });
   app.addHook("onRequest", async (request, reply) => {
-    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import") && !request.url.startsWith("/v1/internal/company-intelligence/sync")) return;
+    if (!request.url.startsWith("/v1/internal/outlook/sync") && !request.url.startsWith("/v1/internal/gate-bridge/import")) return;
     const expected = request.url.startsWith("/v1/internal/gate-bridge/import") ? process.env.GATE_BRIDGE_CRON_SECRET : process.env.CRON_SECRET;
     if (!sameKey(request.headers.authorization?.replace(/^Bearer\s+/i, ""), expected)) return reply.code(401).send({ error: "unauthorized" });
   });
@@ -138,17 +137,6 @@ export async function buildApp() {
     if (!companyIntelligenceConfigured()) return reply.code(503).send({ error: "Company Intelligence is not configured." });
     try { return await companyIntelligenceDetail((request.params as { id: string }).id); }
     catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Company Intelligence is unavailable." }); }
-  });
-  app.get("/v1/desktop/company-intelligence/excel/status", async () => ({ configured: companyWorkbookConfigured() }));
-  app.post("/v1/desktop/company-intelligence/excel/sync", async (_request, reply) => {
-    if (!companyWorkbookConfigured()) return reply.code(503).send({ error: "Company Intelligence workbook is not configured." });
-    try { return await syncCompanyIntelligenceWorkbook(); }
-    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Workbook sync failed." }); }
-  });
-  app.post("/v1/internal/company-intelligence/sync", async (_request, reply) => {
-    if (!companyWorkbookConfigured()) return reply.code(503).send({ error: "Company Intelligence workbook is not configured." });
-    try { return await syncCompanyIntelligenceWorkbook(); }
-    catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "Workbook sync failed." }); }
   });
   // Cloudflare invokes this every minute. The desktop never sees bridge URLs or credentials.
   app.post("/v1/internal/gate-bridge/import", async (request, reply) => {
@@ -272,12 +260,6 @@ export async function buildApp() {
   app.post("/v1/agent/gate/deliveries/claim", async (request) => { const limit = Math.min(20, Math.max(1, Number((request.body as { limit?: number })?.limit ?? 5))); return { items: await claimPendingDeliveries(limit) }; });
   app.post("/v1/agent/gate/enrich", async (request) => { const b = request.body as { limit?: number; force?: boolean } | undefined; return enrichPending(Math.min(9, Math.max(1, Number(b?.limit ?? 6))), b?.force === true); });
   app.get("/v1/agent/gate/decisions", async () => gateDecisions());
-  app.get("/v1/desktop/company-intelligence", async (_request, reply) => {
-    const base = (process.env.GATE_DISCOVERY_URL || "https://gate-discovery.4cyberlord.workers.dev").replace(/\/+$/, "");
-    const response = await fetch(`${base}/company-intelligence`, { headers: { "user-agent": "job-hunt-os-api/1.0" } });
-    if (!response.ok) return reply.code(502).send({ error: `company intelligence upstream returned ${response.status}` });
-    return reply.send(await response.json());
-  });
   app.get("/v1/desktop/gate/opportunities", async (request, reply) => { const q = request.query as { since?: string; after_id?: string }; if (q.since && Number.isNaN(Date.parse(q.since))) return reply.code(422).send({ error: "since must be an ISO date" }); return gateForDesktop(q.since, q.after_id); });
   const gateStatusBody = z.object({ gate_status: z.enum(GATE_STATUSES), linked_job_id: z.string().max(100).optional() });
   app.post("/v1/desktop/gate/:id/status", async (request, reply) => { const body = gateStatusBody.safeParse(request.body); if (!body.success) return reply.code(422).send({ error: "invalid payload", details: body.error.flatten() }); const ok = await setGateStatus((request.params as { id: string }).id, body.data.gate_status, body.data.linked_job_id); return ok ? reply.send({ success: true }) : reply.code(404).send({ error: "not found" }); });
