@@ -22,7 +22,6 @@
 .ci-table-wrap { overflow:auto; max-height:calc(100vh - 300px); }
 .ci-table td { font-size: calc(12.5px * var(--fs,1)); color:var(--text-2); }
 .ci-company { display:flex; align-items:center; gap:10px; min-width:220px; }
-.ci-company-mark { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:var(--blue-soft); color:var(--blue); font-weight:800; font-size:11px; }
 .ci-company > span:last-child { display:grid; gap:1px; }
 .ci-company small { color:var(--muted); max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ci-source-count { display:grid; }
@@ -48,6 +47,8 @@
 .ci-overlay { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.22); display:flex; justify-content:flex-end; padding:18px; }
 .ci-drawer { width:min(560px,92vw); height:100%; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 70px rgba(0,0,0,.22); }
 .ci-drawer > header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px; border-bottom:1px solid var(--line); }
+.ci-drawer-title { display:flex; align-items:flex-start; gap:12px; min-width:0; }
+.ci-drawer-title > div { min-width:0; }
 .ci-drawer > header small { color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; }
 .ci-drawer > header h2 { margin:3px 0 2px; font-size:22px; }
 .ci-drawer > header p { margin:0; color:var(--muted); font-size:12px; }
