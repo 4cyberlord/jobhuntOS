@@ -204,10 +204,21 @@ export async function companyIntelligenceView(env: Pick<IntelligenceEnv, "GATE_J
     LIMIT 500
   `).all<Record<string, unknown>>();
 
+  const sourceRows = await env.GATE_JOURNAL.prepare(`
+    SELECT s.id, s.company_id, c.canonical_name AS company_name, s.url, s.host, s.source_type,
+      s.provider, s.verification_status, s.active, s.last_checked_at, s.last_success_at,
+      s.last_http_status, s.consecutive_failures
+    FROM gate_career_sources s
+    JOIN gate_companies c ON c.id=s.company_id
+    ORDER BY c.priority ASC, c.canonical_name ASC, s.url ASC
+    LIMIT 5000
+  `).all<Record<string, unknown>>();
+
   return {
     generated_at: new Date().toISOString(),
     summary: { ...(summary ?? {}), ...(sources ?? {}) },
-    companies: companies.results ?? []
+    companies: companies.results ?? [],
+    career_sources: sourceRows.results ?? []
   };
 }
 
