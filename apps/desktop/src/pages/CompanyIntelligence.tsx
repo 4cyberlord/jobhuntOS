@@ -65,6 +65,8 @@ export default function CompanyIntelligence() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "healthy" | "attention" | "unknown">("all");
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileNote, setReconcileNote] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -85,6 +87,28 @@ export default function CompanyIntelligence() {
   };
 
   useEffect(() => { void load(); }, []);
+
+  const reconcile = async () => {
+    setReconciling(true);
+    setReconcileNote("");
+    try {
+      const cfg = readSyncConfig();
+      if (!cfg.apiUrl || !cfg.syncKey) throw new Error("Sign in to Job Hunt OS first.");
+      const response = await fetch(`${cfg.apiUrl.replace(/\/+$/, "")}/v1/desktop/company-intelligence/reconcile`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${cfg.syncKey}` },
+      });
+      const body = await response.json().catch(() => ({})) as { linked?: number; already_linked?: number; unresolved?: number; error?: string };
+      if (!response.ok) throw new Error(body.error ?? `Server returned ${response.status}`);
+      setReconcileNote(`${body.linked ?? 0} linked · ${body.already_linked ?? 0} already linked · ${body.unresolved ?? 0} unresolved`);
+      await load();
+    } catch (e) {
+      setReconcileNote(e instanceof Error ? e.message : "Company reconciliation failed.");
+    } finally {
+      setReconciling(false);
+    }
+  };
+
 
   const companies = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -111,11 +135,16 @@ export default function CompanyIntelligence() {
         </div>
         <div className="page-head-actions">
           <span className="ci-generated">{data?.generated_at ? `Updated ${new Date(data.generated_at).toLocaleString()}` : ""}</span>
+          <button className="btn" onClick={() => void reconcile()} disabled={reconciling || loading}>
+            <ShieldCheckIcon className={reconciling ? "ci-spin" : ""} /> {reconciling ? "Linking…" : "Link existing companies"}
+          </button>
           <button className="btn" onClick={() => void load()} disabled={loading}>
             <ArrowPathIcon className={loading ? "ci-spin" : ""} /> Refresh
           </button>
         </div>
       </div>
+
+      {reconcileNote && <div className="ci-reconcile-note">{reconcileNote}</div>}
 
       {error && <div className="ci-error"><ExclamationTriangleIcon /><span>{error}</span></div>}
 
