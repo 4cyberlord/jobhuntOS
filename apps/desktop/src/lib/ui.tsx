@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-export type Route = "dashboard" | "kanban" | "opportunities" | "companies" | "contacts" | "calendar" | "documents" | "vault" | "gate" | "inbox" | "insights" | "notifications" | "settings";
-export const ROUTES: Route[] = ["dashboard", "kanban", "opportunities", "companies", "contacts", "calendar", "documents", "vault", "gate", "inbox", "insights", "notifications", "settings"];
+export type Route = "dashboard" | "kanban" | "opportunities" | "companies" | "company-intelligence" | "contacts" | "calendar" | "documents" | "vault" | "gate" | "inbox" | "insights" | "notifications" | "settings";
+export const ROUTES: Route[] = ["dashboard", "kanban", "opportunities", "companies", "company-intelligence", "contacts", "calendar", "documents", "vault", "gate", "inbox", "insights", "notifications", "settings"];
 /** The first-run destination when there is no valid deep link. */
 export const DEFAULT_ROUTE: Route = "gate";
 
