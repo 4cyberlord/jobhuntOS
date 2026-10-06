@@ -115,6 +115,41 @@ const readBody = async req => {
   }
   return s ? JSON.parse(s) : {};
 };
+const hostOf = value => {
+  try { return new URL(/^https?:\/\//i.test(String(value || "")) ? String(value) : `https://${value}`).hostname.toLowerCase().replace(/^www\./,""); }
+  catch { return ""; }
+};
+const norm = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const stableCompanyId = (name, website) => {
+  const base = hostOf(website) || norm(name);
+  return "cmp_" + crypto.createHash("sha256").update(base).digest("hex").slice(0,16);
+};
+
+async function resolveCompany({ name, website, careers_url }) {
+  const domains = [...new Set([hostOf(website), hostOf(careers_url)].filter(Boolean))];
+  if (domains.length) {
+    const q = await pool.query(`
+      SELECT DISTINCT c.* FROM companies c
+      LEFT JOIN career_sources s ON s.company_id=c.id
+      WHERE regexp_replace(lower(coalesce(c.website,'')), '^https?://(www\\.)?', '') LIKE ANY($1)
+         OR lower(s.host)=ANY($2)
+      LIMIT 2
+    `, [domains.map(d=>d+"%"), domains]);
+    if (q.rows.length === 1) return { company:q.rows[0], matched_by:"domain", confidence:1 };
+  }
+  const n=norm(name);
+  if (!n) return null;
+  const q=await pool.query(`
+    SELECT DISTINCT c.* FROM companies c
+    LEFT JOIN company_aliases a ON a.company_id=c.id
+    WHERE lower(regexp_replace(c.canonical_name,'[^a-zA-Z0-9]+',' ','g'))=$1
+       OR lower(regexp_replace(coalesce(c.legal_name,''),'[^a-zA-Z0-9]+',' ','g'))=$1
+       OR lower(regexp_replace(coalesce(a.alias,''),'[^a-zA-Z0-9]+',' ','g'))=$1
+    LIMIT 2
+  `,[n]);
+  return q.rows.length===1 ? { company:q.rows[0], matched_by:"name_or_alias", confidence:.92 } : null;
+}
+
 const authorized = req => {
   if (!WRITE_TOKEN) return false;
   const got = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
@@ -129,6 +164,20 @@ const server = http.createServer(async (req,res) => {
       res.writeHead(204, { "access-control-allow-origin":"*", "access-control-allow-headers":"authorization,content-type", "access-control-allow-methods":"GET,POST,PUT,OPTIONS" }); return res.end();
     }
     if (req.method === "GET" && url.pathname === "/health") return json(res,200,{ok:true,service:"jobhunt-company-intelligence"});
+    if (req.method === "GET" && url.pathname === "/v1/companies/resolve") {
+      const found=await resolveCompany({name:url.searchParams.get("name"),website:url.searchParams.get("website"),careers_url:url.searchParams.get("careers_url")});
+      return found ? json(res,200,{ok:true,...found}) : json(res,404,{ok:false,error:"company_not_found"});
+    }
+    if (req.method === "GET" && /^\/v1\/companies\/[^/]+$/.test(url.pathname)) {
+      const id=decodeURIComponent(url.pathname.split("/").pop());
+      const [company,sources,discoveries]=await Promise.all([
+        pool.query("SELECT * FROM companies WHERE id=$1",[id]),
+        pool.query("SELECT * FROM career_sources WHERE company_id=$1 ORDER BY active DESC, verification_status DESC, url",[id]),
+        pool.query("SELECT * FROM internship_discoveries WHERE company_id=$1 ORDER BY discovered_at DESC LIMIT 100",[id])
+      ]);
+      if (!company.rows[0]) return json(res,404,{error:"not found"});
+      return json(res,200,{ok:true,company:company.rows[0],career_sources:sources.rows,discoveries:discoveries.rows});
+    }
     if (req.method === "GET" && url.pathname === "/v1/company-intelligence") {
       const [s,c] = await Promise.all([
         pool.query(`SELECT
@@ -150,6 +199,10 @@ const server = http.createServer(async (req,res) => {
     if (!authorized(req)) return json(res,401,{error:"unauthorized"});
     if (req.method === "POST" && url.pathname === "/v1/companies/upsert") {
       const b=await readBody(req);
+      const existing=await resolveCompany(b);
+      const id=b.id || existing?.company?.id || stableCompanyId(b.canonical_name || b.name,b.website);
+      const canonical=b.canonical_name || b.name;
+      if (!canonical) return json(res,422,{error:"canonical_name required"});
       const q=await pool.query(`INSERT INTO companies
         (id,canonical_name,legal_name,parent_company,state,country,website,industry,technical_employer,priority,active,fortune_500,sp_500,tech_departments,updated_at)
         VALUES ($1,$2,$3,$4,$5,COALESCE($6,'US'),$7,$8,COALESCE($9,true),COALESCE($10,3),COALESCE($11,true),$12,$13,COALESCE($14,'{}'),now())
@@ -158,9 +211,11 @@ const server = http.createServer(async (req,res) => {
         technical_employer=EXCLUDED.technical_employer,priority=EXCLUDED.priority,active=EXCLUDED.active,
         fortune_500=EXCLUDED.fortune_500,sp_500=EXCLUDED.sp_500,tech_departments=EXCLUDED.tech_departments,updated_at=now()
         RETURNING *`,
-        [b.id,b.canonical_name,b.legal_name??null,b.parent_company??null,b.state??null,b.country??"US",b.website??null,b.industry??null,
+        [id,canonical,b.legal_name??null,b.parent_company??null,b.state??null,b.country??"US",b.website??null,b.industry??null,
          b.technical_employer!==false,b.priority??3,b.active!==false,b.fortune_500??null,b.sp_500??null,b.tech_departments??[]]);
-      return json(res,200,{ok:true,company:q.rows[0]});
+      const aliases=[b.name,b.canonical_name,b.legal_name,...(Array.isArray(b.aliases)?b.aliases:[])].filter(Boolean);
+      for(const alias of [...new Set(aliases)]) await pool.query("INSERT INTO company_aliases(company_id,alias,alias_type) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[id,String(alias),"name"]);
+      return json(res,200,{ok:true,company:q.rows[0],matched_existing:!!existing});
     }
     if (req.method === "POST" && url.pathname === "/v1/career-sources/upsert") {
       const b=await readBody(req);
@@ -172,6 +227,18 @@ const server = http.createServer(async (req,res) => {
         RETURNING *`,
         [b.id,b.company_id,b.url,b.host,b.source_type??"careers",b.provider??"custom",b.verification_status??"discovered",b.active!==false,b.metadata??{}]);
       return json(res,200,{ok:true,source:q.rows[0]});
+    }
+    if (req.method === "POST" && url.pathname === "/v1/discoveries/upsert") {
+      const b=await readBody(req);
+      const id=b.id || "disc_"+crypto.createHash("sha256").update(String(b.canonical_url||b.apply_url||"")).digest("hex").slice(0,20);
+      const q=await pool.query(`INSERT INTO internship_discoveries
+        (id,company_id,career_source_id,title,apply_url,canonical_url,season,location,work_arrangement,posting_status,match_score,eligibility_risk,gate_id,metadata,last_seen_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,'open'),$11,$12,$13,COALESCE($14,'{}'::jsonb),now())
+        ON CONFLICT(canonical_url) DO UPDATE SET company_id=EXCLUDED.company_id,career_source_id=EXCLUDED.career_source_id,title=EXCLUDED.title,
+        last_seen_at=now(),posting_status=EXCLUDED.posting_status,match_score=EXCLUDED.match_score,eligibility_risk=EXCLUDED.eligibility_risk,
+        gate_id=COALESCE(EXCLUDED.gate_id,internship_discoveries.gate_id),metadata=EXCLUDED.metadata RETURNING *`,
+        [id,b.company_id,b.career_source_id??null,b.title,b.apply_url,b.canonical_url||b.apply_url,b.season??null,b.location??null,b.work_arrangement??null,b.posting_status??"open",b.match_score??null,b.eligibility_risk??null,b.gate_id??null,b.metadata??{}]);
+      return json(res,200,{ok:true,discovery:q.rows[0]});
     }
     return json(res,404,{error:"not found"});
   } catch (e) {
