@@ -23,6 +23,37 @@ jobs:
           cache-dependency-path: deploy/cloudflare-gate-discovery/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - name: Sync optional discovery provider secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          YEP_API_KEY: ${{ secrets.YEP_API_KEY }}
+          LANGSEARCH_API_KEY: ${{ secrets.LANGSEARCH_API_KEY }}
+          SEARCHAPI_API_KEY: ${{ secrets.SEARCHAPI_API_KEY }}
+          SERPLY_API_KEY: ${{ secrets.SERPLY_API_KEY }}
+          SEARCH1API_KEY: ${{ secrets.SEARCH1API_KEY }}
+          CRAWLERAPI_API_KEY: ${{ secrets.CRAWLERAPI_API_KEY }}
+          SIMPLECRAWL_API_KEY: ${{ secrets.SIMPLECRAWL_API_KEY }}
+          PILOTERR_API_KEY: ${{ secrets.PILOTERR_API_KEY }}
+          YAERIS_API_KEY: ${{ secrets.YAERIS_API_KEY }}
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const names = [
+            "TAVILY_API_KEY","EXA_API_KEY","FIRECRAWL_API_KEY","YEP_API_KEY","LANGSEARCH_API_KEY",
+            "SEARCHAPI_API_KEY","SERPLY_API_KEY","SEARCH1API_KEY","CRAWLERAPI_API_KEY",
+            "SIMPLECRAWL_API_KEY","PILOTERR_API_KEY","YAERIS_API_KEY"
+          ];
+          const values = Object.fromEntries(names.filter((name) => process.env[name]?.trim()).map((name) => [name, process.env[name]]));
+          fs.writeFileSync("/tmp/gate-provider-secrets.json", JSON.stringify(values));
+          console.log("Provider secrets available for sync:", Object.keys(values).length);
+          NODE
+          if [ "$(node -e 'const x=require("/tmp/gate-provider-secrets.json"); process.stdout.write(String(Object.keys(x).length))')" != "0" ]; then
+            npx wrangler secret bulk /tmp/gate-provider-secrets.json
+          fi
+          rm -f /tmp/gate-provider-secrets.json
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
