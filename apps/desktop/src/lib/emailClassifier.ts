@@ -48,14 +48,16 @@ function extractSchedule(subject: string, body: string): ClassifiedEmail["schedu
   // Look for Zoom/Teams/Meet links
   const linkMatch = text.match(/https?:\/\/[^\s]*?(zoom\.us|teams\.microsoft\.com|meet\.google\.com|whereby\.com)[^\s]*/i);
   const link = linkMatch?.[0];
-  // Very permissive date/time: Oct 7, 2026 at 2pm PT, 2026-10-07T14:00, Monday Oct 7 2:00 PM
   const datePatterns = [
     // 2026-10-07T14:00
     /(\d{4}-\d{2}-\d{2})[T ](\d{1,2}:\d{2})/,
-    // October 7, 2026 at 2:00 PM or Oct 7 2pm
-    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})?[^a-z0-9]{0,20}(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i,
-    // Monday, Oct 7 at 2pm
-    /(monday|tuesday|wednesday|thursday|friday|saturday|sunday)[^a-z0-9]{0,10}(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})[^a-z0-9]{0,20}(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i,
+    // October 7, 2026 at 2:00 PM or Oct 7 2pm (Time required)
+    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})?[^a-z0-9]{1,20}(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+    // Monday, Oct 7 at 2pm (Time required)
+    /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)[^a-z0-9]{1,10}(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})[^a-z0-9]{1,20}(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+    // Date only: October 13, 2026 or Oct 13 (No time)
+    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i,
+    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?/i,
   ];
   let start: number | undefined;
   let raw: string | undefined;
@@ -154,7 +156,7 @@ export function classifyEmail(input: { subject: string; bodyPreview?: string; bo
   if (isAssessment) {
     const kind = assessmentKindFromText(hay) ?? "other";
     const sched = extractSchedule(subject, body);
-    const conf = atsSender ? 0.91 : hasAny(hay, ["hackerrank", "codility"]) ? 0.9 : 0.84;
+    const conf = atsSender ? 0.91 : hasAny(hay, ["hackerrank", "codility"]) ? 0.9 : (subject.toLowerCase().includes("assessment") ? 0.90 : 0.84);
     return { label: "assessment_invite", confidence: conf, assessmentKind: kind, reasons: ["assessment keywords", ...(atsSender ? ["ats sender"] : [])], schedule: sched };
   }
 
