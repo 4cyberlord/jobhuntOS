@@ -84,8 +84,34 @@ export async function ensureIntelligenceCompany(e: GateEnvelope) {
   });
   return created.company.id;
 }
+export async function registerCareerSource(e: GateEnvelope, companyId: string) {
+  const preferred = e.company.careers_url || (e.source.official ? e.source.url : null) || e.original_posting?.source_url || null;
+  if (!preferred) return null;
+  let host = "";
+  try { host = new URL(preferred).hostname.toLowerCase(); } catch { return null; }
+  const id = `src_${companyId}_${host.replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 80)}`;
+  const provider = e.source.provider || e.original_posting?.source_provider || "custom";
+  const r = await fetch(`${base()}/v1/career-sources/upsert`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token()}`, "content-type": "application/json", "user-agent": "job-hunt-os-api/1.0" },
+    body: JSON.stringify({
+      id,
+      company_id: companyId,
+      url: preferred,
+      host,
+      source_type: e.company.careers_url ? "careers" : "posting_source",
+      provider,
+      verification_status: e.source.official || e.original_posting?.official_source ? "verified" : "discovered",
+      active: true,
+      metadata: { source_name: e.source.name, evidence_url: e.source.url },
+    }),
+  });
+  return readJson<{ ok: true; source: Record<string, unknown> }>(r);
+}
+
 export async function recordIntelligenceDiscovery(e: GateEnvelope, gateId?: string) {
   const companyId = await ensureIntelligenceCompany(e);
+  await registerCareerSource(e, companyId).catch(() => null);
   const location = [e.opportunity.location.city, e.opportunity.location.state, e.opportunity.location.country].filter(Boolean).join(", ");
   const r = await fetch(`${base()}/v1/discoveries/upsert`, {
     method: "POST",
