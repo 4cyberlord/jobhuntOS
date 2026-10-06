@@ -42,3 +42,28 @@
 @media (max-width:1100px) { .ci-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .ci-tools { flex-wrap:wrap; justify-content:flex-end; } }
 
 .ci-reconcile-note { margin: -4px 0 14px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; color: var(--text-2); background: var(--panel-2); font-size: calc(12px * var(--fs,1)); }
+
+.ci-clickable { cursor:pointer; }
+.ci-clickable:hover td { background:var(--panel-2); }
+.ci-overlay { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.22); display:flex; justify-content:flex-end; padding:18px; }
+.ci-drawer { width:min(560px,92vw); height:100%; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 70px rgba(0,0,0,.22); }
+.ci-drawer > header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px; border-bottom:1px solid var(--line); }
+.ci-drawer > header small { color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; }
+.ci-drawer > header h2 { margin:3px 0 2px; font-size:22px; }
+.ci-drawer > header p { margin:0; color:var(--muted); font-size:12px; }
+.ci-drawer-scroll { overflow:auto; padding:16px; display:grid; gap:20px; }
+.ci-drawer-scroll section { display:grid; gap:9px; }
+.ci-drawer-scroll h3 { margin:0; font-size:13px; display:flex; gap:7px; align-items:center; }
+.ci-drawer-scroll h3 span { color:var(--muted); font-weight:500; }
+.ci-kv { display:grid; grid-template-columns:130px 1fr; gap:7px 12px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); font-size:12px; }
+.ci-kv span { color:var(--muted); }
+.ci-kv b { overflow-wrap:anywhere; }
+.ci-url { width:100%; border:1px solid var(--line); background:var(--panel); border-radius:11px; padding:11px; display:grid; grid-template-columns:20px 1fr 16px; align-items:start; gap:10px; text-align:left; color:var(--text); }
+.ci-url:hover { background:var(--panel-2); border-color:var(--line-strong); }
+.ci-url > svg { width:18px; height:18px; margin-top:2px; color:var(--muted); }
+.ci-url > span { min-width:0; display:grid; gap:2px; }
+.ci-url b { font-size:12.5px; }
+.ci-url small { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ci-url em { color:var(--muted); font-style:normal; font-size:10.5px; }
+.ci-detail-loading { padding:30px; display:flex; align-items:center; gap:8px; color:var(--muted); }
+.ci-detail-loading svg { width:18px; height:18px; }
