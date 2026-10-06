@@ -58,6 +58,8 @@ export type Company = {
   size: string;
   hq: string;
   notes: string;
+  /** Stable ID in the external Company Intelligence registry; local company id remains unchanged. */
+  intelligenceId?: string;
 };
 
 export type Contact = {
