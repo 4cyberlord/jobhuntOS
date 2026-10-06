@@ -11,6 +11,8 @@ type IntelligenceCompany = {
 };
 
 type ResolveResult = { ok: true; company: IntelligenceCompany; matched_by?: string; confidence?: number };
+type CompanyUpsertResult = { ok: true; company: IntelligenceCompany; created?: boolean; matched_existing?: boolean };
+type SourceUpsertResult = { ok: true; source: Record<string, unknown>; created?: boolean; previous_verification_status?: string | null };
 
 function base() {
   const url = process.env.COMPANY_INTELLIGENCE_API_URL?.replace(/\/+$/, "");
@@ -21,6 +23,17 @@ function token() {
   const value = process.env.COMPANY_INTELLIGENCE_WRITE_TOKEN;
   if (!value) throw new Error("COMPANY_INTELLIGENCE_WRITE_TOKEN is not configured.");
   return value;
+}
+async function relayLifecycle(phase: string, fields: Record<string, unknown>) {
+  const url = process.env.LIFECYCLE_RELAY_URL?.trim();
+  const eventToken = process.env.LIFECYCLE_EVENT_TOKEN?.trim();
+  if (!url || !eventToken) return;
+  await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${eventToken}`, "content-type": "application/json" },
+    body: JSON.stringify({ source: "company_intelligence", prefix: "🏢 COMPANY-INTEL", phase, ...fields }),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => undefined);
 }
 async function readJson<T>(r: Response): Promise<T> {
   const body = await r.json().catch(() => ({}));
@@ -64,7 +77,7 @@ export async function upsertIntelligenceCompany(input: {
       active: true,
     }),
   });
-  return readJson<{ ok: true; company: IntelligenceCompany }>(r);
+  return readJson<CompanyUpsertResult>(r);
 }
 export async function ensureIntelligenceCompany(e: GateEnvelope) {
   const company = e.company as GateEnvelope["company"] & { intelligence_id?: string | null };
@@ -82,6 +95,14 @@ export async function ensureIntelligenceCompany(e: GateEnvelope) {
     industry: company.industry,
     headquarters: company.headquarters,
   });
+  if (created.created) {
+    await relayLifecycle("company_discovered", {
+      company: created.company.canonical_name,
+      company_id: created.company.id,
+      website: created.company.website ?? null,
+      industry: created.company.industry ?? null,
+    });
+  }
   return created.company.id;
 }
 export async function registerCareerSource(e: GateEnvelope, companyId: string) {
@@ -106,7 +127,27 @@ export async function registerCareerSource(e: GateEnvelope, companyId: string) {
       metadata: { source_name: e.source.name, evidence_url: e.source.url },
     }),
   });
-  return readJson<{ ok: true; source: Record<string, unknown> }>(r);
+  const result = await readJson<SourceUpsertResult>(r);
+  const verified = e.source.official || e.original_posting?.official_source;
+  if (result.created) {
+    await relayLifecycle("career_source_added", {
+      company: e.company.name,
+      company_id: companyId,
+      provider,
+      url: preferred,
+      host,
+      verified,
+    });
+  } else if (verified && result.previous_verification_status !== "verified") {
+    await relayLifecycle("career_source_verified", {
+      company: e.company.name,
+      company_id: companyId,
+      provider,
+      url: preferred,
+      host,
+    });
+  }
+  return result;
 }
 
 export async function recordIntelligenceDiscovery(e: GateEnvelope, gateId?: string) {
