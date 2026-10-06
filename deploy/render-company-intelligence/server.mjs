@@ -1,10 +1,17 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import pg from "pg";
+import * as jose from "jose";
 
 const { Pool } = pg;
 const DATABASE_URL = process.env.DATABASE_URL;
 const WRITE_TOKEN = process.env.COMPANY_INTELLIGENCE_WRITE_TOKEN;
+const VERCEL_TEAM_SLUG = process.env.VERCEL_TEAM_SLUG || "cyberlords-projects-c47490f9";
+const VERCEL_PROJECT_NAME = process.env.VERCEL_PROJECT_NAME || "job-hunt-os-api";
+const VERCEL_ISSUER = `https://oidc.vercel.com/${VERCEL_TEAM_SLUG}`;
+const VERCEL_AUDIENCE = `https://vercel.com/${VERCEL_TEAM_SLUG}`;
+const VERCEL_SUBJECT = `owner:${VERCEL_TEAM_SLUG}:project:${VERCEL_PROJECT_NAME}:environment:production`;
+const VERCEL_JWKS = jose.createRemoteJWKSet(new URL("/.well-known/jwks", VERCEL_ISSUER));
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
 
 const schema = `
@@ -148,11 +155,23 @@ async function resolveCompany({ name, website, careers_url }) {
   return q.rows.length===1 ? { company:q.rows[0], matched_by:"name_or_alias", confidence:.92 } : null;
 }
 
-const authorized = req => {
-  if (!WRITE_TOKEN) return false;
+const authorized = async req => {
   const got = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const a = Buffer.from(got), b = Buffer.from(WRITE_TOKEN);
-  return a.length === b.length && crypto.timingSafeEqual(a,b);
+  if (!got) return false;
+  if (WRITE_TOKEN) {
+    const a = Buffer.from(got), b = Buffer.from(WRITE_TOKEN);
+    if (a.length === b.length && crypto.timingSafeEqual(a,b)) return true;
+  }
+  try {
+    await jose.jwtVerify(got, VERCEL_JWKS, {
+      issuer: VERCEL_ISSUER,
+      audience: VERCEL_AUDIENCE,
+      subject: VERCEL_SUBJECT,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const server = http.createServer(async (req,res) => {
@@ -195,7 +214,7 @@ const server = http.createServer(async (req,res) => {
       ]);
       return json(res,200,{ok:true,generated_at:new Date().toISOString(),summary:s.rows[0],companies:c.rows});
     }
-    if (!authorized(req)) return json(res,401,{error:"unauthorized"});
+    if (!(await authorized(req))) return json(res,401,{error:"unauthorized"});
     if (req.method === "POST" && url.pathname === "/v1/companies/upsert") {
       const b=await readBody(req);
       const existing=await resolveCompany(b);
