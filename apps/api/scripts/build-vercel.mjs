@@ -16,6 +16,5 @@ await build({
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
 });
 writeFileSync(join(root, "package.json"), JSON.stringify({ name: "job-hunt-os-api", private: true, type: "module", engines: { node: "24.x" } }, null, 2));
-writeFileSync(join(root, "index.mjs"), 'export { default } from "./api/index.mjs";\n');
-writeFileSync(join(root, "vercel.json"), JSON.stringify({ rewrites: [{ source: "/(.*)", destination: "/api" }], functions: { "api/index.mjs": { maxDuration: 30 }, "index.mjs": { maxDuration: 30 } } }, null, 2));
+writeFileSync(join(root, "vercel.json"), JSON.stringify({ rewrites: [{ source: "/(.*)", destination: "/api" }], functions: { "api/index.mjs": { maxDuration: 30 } } }, null, 2));
 console.log("Wrote", root);
