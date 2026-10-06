@@ -8,43 +8,38 @@ export type IntelligenceCandidate = {
   allowed_host: string;
 };
 
-export type CompanyRow = {
-  id: string;
-  canonical_name: string;
-  legal_name: string | null;
-  state: string | null;
-  website: string | null;
-  industry: string | null;
-  technical_employer: number;
-  priority: number;
-  active: number;
-  last_checked_at: number | null;
-  last_success_at: number | null;
-  next_check_at: number | null;
-  consecutive_failures: number;
-};
-
-export type CareerSourceRow = {
-  id: string;
-  company_id: string;
-  url: string;
-  host: string;
-  source_type: string;
-  provider: string;
-  verification_status: string;
-  active: number;
-  last_checked_at: number | null;
-  last_success_at: number | null;
-  last_http_status: number | null;
-  consecutive_failures: number;
-};
-
 type IntelligenceEnv = {
   TAVILY_API_KEY: string;
   SEASON: string;
+  GATE_IMPORT_URL: string;
+  GATE_BRIDGE_CRON_SECRET: string;
   GATE_JOURNAL: D1Database;
   CANDIDATES: Queue<unknown>;
 };
+
+type DueCompany = {
+  company: {
+    id: string;
+    canonical_name: string;
+    legal_name?: string | null;
+    website?: string | null;
+    industry?: string | null;
+    state?: string | null;
+    priority?: number;
+    verified_source_count?: number;
+  };
+  career_sources: Array<{
+    id?: string;
+    url: string;
+    host?: string;
+    provider?: string;
+    verification_status?: string;
+    active?: boolean;
+  }>;
+  needs_enrichment: boolean;
+};
+
+type SearchResult = { url?: string; title?: string; content?: string };
 
 const TECH_TERMS = [
   "software engineer", "software engineering", "software developer", "backend", "frontend",
@@ -53,221 +48,201 @@ const TECH_TERMS = [
   "machine learning", "ai engineer", "mobile engineer", "ios engineer", "technology intern"
 ];
 
+const ATS_HOSTS = ["greenhouse.io","lever.co","myworkdayjobs.com","ashbyhq.com","smartrecruiters.com","icims.com"];
+const providerOf = (host: string) =>
+  host.includes("greenhouse") ? "greenhouse" :
+  host.includes("lever") ? "lever" :
+  host.includes("workday") ? "workday" :
+  host.includes("ashby") ? "ashby" :
+  host.includes("smartrecruiters") ? "smartrecruiters" :
+  host.includes("icims") ? "icims" : "custom";
+
 const canonicalUrl = (value: string) => {
   const u = new URL(value);
   u.hash = "";
-  ["utm_source", "utm_medium", "utm_campaign", "gh_src"].forEach((k) => u.searchParams.delete(k));
+  ["utm_source","utm_medium","utm_campaign","gh_src"].forEach((k)=>u.searchParams.delete(k));
   return u.toString();
 };
+const hostOf = (value?: string | null) => {
+  if (!value) return "";
+  try { return new URL(value).hostname.toLowerCase().replace(/^www\./,""); } catch { return ""; }
+};
+const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const tokens = (value: string) => norm(value).split(" ").filter((x)=>x.length>=3 && !["inc","corp","corporation","company","group","holdings","llc","ltd"].includes(x));
+const hostMatches = (host: string, allowed: string) => host === allowed || host.endsWith("." + allowed);
+const trustedAts = (host: string) => ATS_HOSTS.some((suffix)=>host===suffix||host.endsWith("." + suffix));
+const sha256 = async (value: string) => "sha256:" + [...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)))].map((x)=>x.toString(16).padStart(2,"0")).join("");
 
-const hostMatches = (host: string, allowed: string) =>
-  host === allowed || host.endsWith("." + allowed);
-
-const sha256 = async (value: string) =>
-  "sha256:" + [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))]
-    .map((x) => x.toString(16).padStart(2, "0")).join("");
-
-async function tavily(env: IntelligenceEnv, query: string) {
-  const response = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      api_key: env.TAVILY_API_KEY,
-      query,
-      search_depth: "basic",
-      max_results: 10,
-      topic: "general",
-      include_answer: false
-    })
+const apiBase = (env: IntelligenceEnv) => env.GATE_IMPORT_URL.replace(/\/v1\/internal\/gate-bridge\/import.*$/,"").replace(/\/+$/,"");
+async function api(env: IntelligenceEnv, path: string, init: RequestInit = {}) {
+  const r = await fetch(apiBase(env)+path, {
+    ...init,
+    headers: { authorization: `Bearer ${env.GATE_BRIDGE_CRON_SECRET}`, "content-type":"application/json", ...(init.headers ?? {}) },
   });
-  if (!response.ok) throw new Error("tavily_http_" + response.status);
-  return response.json() as Promise<{ results?: Array<{ url?: string; title?: string }> }>;
+  const body = await r.json().catch(()=>({})) as any;
+  if (!r.ok) throw new Error(body?.error || `company_intelligence_api_${r.status}`);
+  return body;
+}
+async function tavily(env: IntelligenceEnv, query: string, max = 10) {
+  const response = await fetch("https://api.tavily.com/search", {
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({ api_key:env.TAVILY_API_KEY, query, search_depth:"basic", max_results:max, topic:"general", include_answer:false })
+  });
+  if(!response.ok) throw new Error("tavily_http_"+response.status);
+  const body = await response.json() as { results?: SearchResult[] };
+  return body.results ?? [];
 }
 
-function dueSeconds(priority: number) {
-  if (priority <= 1) return 2 * 60 * 60;
-  if (priority === 2) return 6 * 60 * 60;
-  if (priority === 3) return 12 * 60 * 60;
-  return 24 * 60 * 60;
+function companyResultScore(name: string, row: SearchResult) {
+  if (!row.url) return -999;
+  let host=""; try { host=new URL(row.url).hostname.toLowerCase().replace(/^www\./,""); } catch { return -999; }
+  const hay=norm(`${row.title??""} ${row.content??""} ${host}`);
+  const ts=tokens(name);
+  let score=0;
+  for(const t of ts) if(hay.includes(t)) score+=3;
+  if(/career|jobs|employment|work with us|join us/.test(hay)) score+=2;
+  if(trustedAts(host)) score+=1;
+  if(/linkedin|indeed|glassdoor|ziprecruiter|wikipedia/.test(host)) score-=8;
+  return score;
 }
 
-export async function scanCompanyIntelligence(env: IntelligenceEnv) {
-  const now = Math.floor(Date.now() / 1000);
-  const companies = await env.GATE_JOURNAL.prepare(
-    "SELECT * FROM gate_companies WHERE active=1 AND technical_employer=1 AND (next_check_at IS NULL OR next_check_at <= ?) ORDER BY priority ASC, COALESCE(last_checked_at,0) ASC LIMIT 20"
-  ).bind(now).all<CompanyRow>();
+function normalizeCareerUrl(raw: string) {
+  const u=new URL(raw);
+  const host=u.hostname.toLowerCase();
+  if(host.includes("greenhouse.io")||host.includes("lever.co")||host.includes("ashbyhq.com")){
+    const parts=u.pathname.split("/").filter(Boolean);
+    if(parts[0]) u.pathname="/"+parts[0];
+    u.search=""; u.hash="";
+  }
+  return canonicalUrl(u.toString());
+}
 
-  let checked = 0, successful = 0, discovered = 0, queued = 0, alreadyKnown = 0, failed = 0;
+async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
+  const c=item.company;
+  const name=c.canonical_name;
+  let website=c.website??null;
+  let corporateHost=hostOf(website);
 
-  for (const company of companies.results ?? []) {
-    checked++;
-    const sources = await env.GATE_JOURNAL.prepare(
-      "SELECT * FROM gate_career_sources WHERE company_id=? AND active=1 ORDER BY CASE verification_status WHEN 'verified' THEN 0 ELSE 1 END, id"
-    ).bind(company.id).all<CareerSourceRow>();
-
-    let companyOk = false;
-    try {
-      for (const career of sources.results ?? []) {
-        const sourceHost = career.host.toLowerCase();
-        const query = `site:${sourceHost} "${env.SEASON}" (intern OR internship) (software OR engineering OR technology OR data OR security OR "machine learning")`;
-        const body = await tavily(env, query);
-        let sourceOk = true;
-
-        for (const row of body.results ?? []) {
-          if (!row.url) continue;
-          let url: URL;
-          try { url = new URL(row.url); } catch { continue; }
-          if (url.protocol !== "https:" || !hostMatches(url.hostname.toLowerCase(), sourceHost)) continue;
-
-          const title = row.title?.trim() || "";
-          const hay = `${title} ${url.pathname}`.toLowerCase();
-          if (!/intern|co-op|student|early.career/.test(hay)) continue;
-          if (!TECH_TERMS.some((term) => hay.includes(term.split(" ")[0])) && !/software|engineer|technology|data|security|cloud|platform|developer|machine/.test(hay)) continue;
-
-          discovered++;
-          const clean = canonicalUrl(row.url);
-          const key = await sha256(clean);
-          const existing = await env.GATE_JOURNAL.prepare(
-            "SELECT state FROM gate_journal WHERE url_hash=?"
-          ).bind(key).first<{ state: string }>();
-          if (existing) { alreadyKnown++; continue; }
-
-          const candidate: IntelligenceCandidate = {
-            url: clean,
-            title: row.title,
-            source: "company_intelligence",
-            discovered_at: new Date().toISOString(),
-            company_id: company.id,
-            company_name: company.canonical_name,
-            allowed_host: sourceHost
-          };
-          await env.CANDIDATES.send(candidate);
-          queued++;
-        }
-
-        await env.GATE_JOURNAL.prepare(
-          "UPDATE gate_career_sources SET last_checked_at=?, last_success_at=?, last_http_status=200, consecutive_failures=0, verification_status=CASE WHEN verification_status='discovered' THEN 'verified' ELSE verification_status END, updated_at=? WHERE id=?"
-        ).bind(now, now, now, career.id).run();
-        companyOk = sourceOk || companyOk;
-      }
-
-      const next = now + dueSeconds(company.priority);
-      await env.GATE_JOURNAL.prepare(
-        "UPDATE gate_companies SET last_checked_at=?, last_success_at=CASE WHEN ? THEN ? ELSE last_success_at END, next_check_at=?, consecutive_failures=CASE WHEN ? THEN 0 ELSE consecutive_failures+1 END, updated_at=? WHERE id=?"
-      ).bind(now, companyOk ? 1 : 0, now, next, companyOk ? 1 : 0, now, company.id).run();
-      if (companyOk) successful++; else failed++;
-    } catch (error) {
-      failed++;
-      const next = now + Math.min(dueSeconds(company.priority), 60 * 60);
-      await env.GATE_JOURNAL.prepare(
-        "UPDATE gate_companies SET last_checked_at=?, next_check_at=?, consecutive_failures=consecutive_failures+1, updated_at=? WHERE id=?"
-      ).bind(now, next, now, company.id).run();
-      for (const career of sources.results ?? []) {
-        await env.GATE_JOURNAL.prepare(
-          "UPDATE gate_career_sources SET last_checked_at=?, consecutive_failures=consecutive_failures+1, updated_at=? WHERE id=?"
-        ).bind(now, now, career.id).run();
-      }
-      console.warn("company intelligence scan failed", company.id, String(error));
+  if(!website){
+    const results=await tavily(env,`"${name}" official company website careers jobs`,8);
+    const best=results.sort((a,b)=>companyResultScore(name,b)-companyResultScore(name,a))[0];
+    if(best?.url && companyResultScore(name,best)>=3){
+      try {
+        const u=new URL(best.url);
+        website=`${u.protocol}//${u.hostname}/`;
+        corporateHost=hostOf(website);
+      } catch {}
     }
   }
 
-  return { checked, successful, discovered, queued, already_known: alreadyKnown, failed };
-}
-
-export async function companyIntelligenceView(env: Pick<IntelligenceEnv, "GATE_JOURNAL">) {
-  const summary = await env.GATE_JOURNAL.prepare(`
-    SELECT
-      COUNT(*) AS companies,
-      SUM(CASE WHEN technical_employer=1 THEN 1 ELSE 0 END) AS technical_employers,
-      SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS active_companies,
-      SUM(CASE WHEN consecutive_failures>0 THEN 1 ELSE 0 END) AS companies_with_failures
-    FROM gate_companies
-  `).first<Record<string, number>>();
-
-  const sources = await env.GATE_JOURNAL.prepare(`
-    SELECT
-      COUNT(*) AS career_sources,
-      SUM(CASE WHEN verification_status='verified' AND active=1 THEN 1 ELSE 0 END) AS verified_sources,
-      SUM(CASE WHEN consecutive_failures>0 AND active=1 THEN 1 ELSE 0 END) AS failing_sources
-    FROM gate_career_sources
-  `).first<Record<string, number>>();
-
-  const companies = await env.GATE_JOURNAL.prepare(`
-    SELECT c.*,
-      COUNT(s.id) AS source_count,
-      SUM(CASE WHEN s.verification_status='verified' AND s.active=1 THEN 1 ELSE 0 END) AS verified_source_count,
-      SUM(CASE WHEN s.consecutive_failures>0 AND s.active=1 THEN 1 ELSE 0 END) AS failing_source_count
-    FROM gate_companies c
-    LEFT JOIN gate_career_sources s ON s.company_id=c.id
-    GROUP BY c.id
-    ORDER BY c.priority ASC, c.canonical_name ASC
-    LIMIT 500
-  `).all<Record<string, unknown>>();
-
-  const sourceRows = await env.GATE_JOURNAL.prepare(`
-    SELECT s.id, s.company_id, c.canonical_name AS company_name, s.url, s.host, s.source_type,
-      s.provider, s.verification_status, s.active, s.last_checked_at, s.last_success_at,
-      s.last_http_status, s.consecutive_failures
-    FROM gate_career_sources s
-    JOIN gate_companies c ON c.id=s.company_id
-    ORDER BY c.priority ASC, c.canonical_name ASC, s.url ASC
-    LIMIT 5000
-  `).all<Record<string, unknown>>();
-
-  return {
-    generated_at: new Date().toISOString(),
-    summary: { ...(summary ?? {}), ...(sources ?? {}) },
-    companies: companies.results ?? [],
-    career_sources: sourceRows.results ?? []
-  };
-}
-
-export async function upsertCompanyIntelligence(env: Pick<IntelligenceEnv, "GATE_JOURNAL">, input: unknown) {
-  const body = input as {
-    id?: unknown; name?: unknown; legal_name?: unknown; state?: unknown; website?: unknown;
-    industry?: unknown; priority?: unknown; career_sources?: unknown;
-  };
-  if (!body || typeof body.id !== "string" || typeof body.name !== "string") throw new Error("id_and_name_required");
-  const id = body.id.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 80);
-  if (!id) throw new Error("invalid_id");
-  const priority = Math.min(5, Math.max(1, Number(body.priority ?? 3) || 3));
-  const website = typeof body.website === "string" ? body.website.slice(0, 500) : null;
-  await env.GATE_JOURNAL.prepare(`
-    INSERT INTO gate_companies (id, canonical_name, legal_name, state, website, industry, priority, active, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 1, unixepoch())
-    ON CONFLICT(id) DO UPDATE SET canonical_name=excluded.canonical_name, legal_name=excluded.legal_name,
-      state=excluded.state, website=excluded.website, industry=excluded.industry, priority=excluded.priority,
-      active=1, updated_at=unixepoch()
-  `).bind(
-    id, body.name.slice(0, 200),
-    typeof body.legal_name === "string" ? body.legal_name.slice(0, 250) : null,
-    typeof body.state === "string" ? body.state.slice(0, 40) : null,
-    website,
-    typeof body.industry === "string" ? body.industry.slice(0, 120) : null,
-    priority
-  ).run();
-
-  const list = Array.isArray(body.career_sources) ? body.career_sources : [];
-  for (const raw of list.slice(0, 20)) {
-    if (typeof raw !== "string") continue;
-    let u: URL;
-    try { u = new URL(raw); } catch { continue; }
-    if (u.protocol !== "https:") continue;
-    const url = canonicalUrl(u.toString());
-    const host = u.hostname.toLowerCase();
-    const provider =
-      host.includes("greenhouse") ? "greenhouse" :
-      host.includes("lever") ? "lever" :
-      host.includes("myworkdayjobs") ? "workday" :
-      host.includes("ashbyhq") ? "ashby" :
-      host.includes("smartrecruiters") ? "smartrecruiters" : "custom";
-    const sourceId = await sha256(id + "|" + url);
-    await env.GATE_JOURNAL.prepare(`
-      INSERT INTO gate_career_sources (id, company_id, url, host, source_type, provider, verification_status, active, updated_at)
-      VALUES (?, ?, ?, ?, 'careers', ?, 'discovered', 1, unixepoch())
-      ON CONFLICT(company_id,url) DO UPDATE SET host=excluded.host, provider=excluded.provider, active=1, updated_at=unixepoch()
-    `).bind(sourceId, id, url, host, provider).run();
+  const existing = new Map<string,{url:string;provider:string;verification_status:string;source_type:string;evidence_url?:string|null}>();
+  for(const src of item.career_sources??[]){
+    if(!src?.url) continue;
+    try {
+      const clean=normalizeCareerUrl(src.url);
+      existing.set(clean,{url:clean,provider:src.provider||providerOf(hostOf(clean)),verification_status:src.verification_status||"discovered",source_type:"careers",evidence_url:src.url});
+    } catch {}
   }
 
-  return { ok: true, id };
+  const queries = corporateHost
+    ? [`site:${corporateHost} "${name}" careers jobs`, `"${name}" careers jobs software engineering`]
+    : [`"${name}" careers jobs software engineering`];
+
+  for(const q of queries){
+    for(const row of await tavily(env,q,10)){
+      if(!row.url) continue;
+      let u:URL; try{u=new URL(row.url);}catch{continue;}
+      if(u.protocol!=="https:") continue;
+      const host=u.hostname.toLowerCase();
+      const hay=norm(`${row.title??""} ${row.content??""} ${u.pathname}`);
+      const mentionsCompany=tokens(name).some((t)=>hay.includes(t));
+      const sameCorporate=!!corporateHost && (hostMatches(host,corporateHost)||hostMatches(corporateHost,host));
+      const ats=trustedAts(host);
+      if(!sameCorporate && !(ats && mentionsCompany)) continue;
+      if(!/career|jobs|job|employment|intern|opportunit/.test(hay) && !ats) continue;
+      const clean=normalizeCareerUrl(row.url);
+      existing.set(clean,{
+        url:clean,
+        provider:providerOf(host),
+        verification_status:sameCorporate?"verified":"discovered",
+        source_type:"careers",
+        evidence_url:row.url,
+      });
+    }
+  }
+
+  return {
+    company_id:c.id,
+    name,
+    legal_name:c.legal_name??null,
+    website,
+    industry:c.industry??null,
+    headquarters:c.state??null,
+    priority:Number(c.priority??3),
+    career_sources:[...existing.values()].slice(0,20),
+    ok:true,
+  };
+}
+
+async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Array<{url:string}>) {
+  let discovered=0,queued=0,alreadyKnown=0;
+  const company=item.company;
+  for(const source of sources){
+    let host=""; try{host=new URL(source.url).hostname.toLowerCase();}catch{continue;}
+    const query=`site:${host} "${env.SEASON}" (intern OR internship OR co-op) (software OR engineering OR technology OR data OR security OR cloud OR "machine learning")`;
+    for(const row of await tavily(env,query,10)){
+      if(!row.url) continue;
+      let u:URL; try{u=new URL(row.url);}catch{continue;}
+      if(u.protocol!=="https:" || (!hostMatches(u.hostname.toLowerCase(),host) && !trustedAts(u.hostname.toLowerCase()))) continue;
+      const title=row.title?.trim()||"";
+      const hay=`${title} ${u.pathname}`.toLowerCase();
+      if(!/intern|co-op|student|early.career/.test(hay)) continue;
+      if(!TECH_TERMS.some((term)=>hay.includes(term.split(" ")[0])) && !/software|engineer|technology|data|security|cloud|platform|developer|machine/.test(hay)) continue;
+      discovered++;
+      const clean=canonicalUrl(row.url);
+      const key=await sha256(clean);
+      const seen=await env.GATE_JOURNAL.prepare("SELECT state FROM gate_journal WHERE url_hash=?").bind(key).first<{state:string}>();
+      if(seen){alreadyKnown++;continue;}
+      const candidate:IntelligenceCandidate={url:clean,title:row.title,source:"company_intelligence",discovered_at:new Date().toISOString(),company_id:company.id,company_name:company.canonical_name,allowed_host:host};
+      await env.CANDIDATES.send(candidate);
+      queued++;
+    }
+  }
+  return {discovered,queued,alreadyKnown};
+}
+
+export async function scanCompanyIntelligence(env: IntelligenceEnv) {
+  const due = await api(env,"/v1/internal/company-intelligence/due?limit=12") as {companies?:DueCompany[]};
+  let checked=0,successful=0,discovered=0,queued=0,alreadyKnown=0,failed=0,sourcesAdded=0;
+
+  for(const item of due.companies??[]){
+    checked++;
+    try{
+      const enrichment=await researchCompany(env,item);
+      const saved=await api(env,"/v1/internal/company-intelligence/enrich",{method:"POST",body:JSON.stringify(enrichment)}) as {sources_added?:number};
+      sourcesAdded+=Number(saved.sources_added??0);
+      const scan=await queueMatches(env,item,enrichment.career_sources);
+      discovered+=scan.discovered; queued+=scan.queued; alreadyKnown+=scan.alreadyKnown;
+      successful++;
+    }catch(error){
+      failed++;
+      await api(env,"/v1/internal/company-intelligence/enrich",{method:"POST",body:JSON.stringify({
+        company_id:item.company.id,name:item.company.canonical_name,website:item.company.website??null,
+        industry:item.company.industry??null,headquarters:item.company.state??null,priority:Number(item.company.priority??3),career_sources:[],ok:false
+      })}).catch(()=>undefined);
+      console.warn("company intelligence research failed",item.company.id,String(error));
+    }
+  }
+  return {checked,successful,discovered,queued,already_known:alreadyKnown,failed,sources_added:sourcesAdded,source_of_truth:"render_postgres"};
+}
+
+export async function companyIntelligenceView(_env: IntelligenceEnv) {
+  const r=await fetch("https://jobhunt-company-intelligence-api.onrender.com/v1/company-intelligence",{headers:{"user-agent":"GATE-Cloudflare-Watcher/4.0"}});
+  if(!r.ok) throw new Error("render_company_intelligence_"+r.status);
+  return r.json() as Promise<Record<string,unknown>>;
+}
+
+export async function upsertCompanyIntelligence(env: IntelligenceEnv, input: unknown) {
+  return api(env,"/v1/internal/company-intelligence/enrich",{method:"POST",body:JSON.stringify(input)});
 }
