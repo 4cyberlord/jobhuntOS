@@ -68,9 +68,9 @@ const server = http.createServer(async (req, res) => {
 });
 const cleanup = setInterval(() => void cleanupImported(pool).then((count) => { if (count) console.log(`cleaned imported=${count}`); }).catch((error) => console.error("bridge cleanup failed", error.message)), 60 * 60_000);
 const runCompanyIntelligenceMigration = async () => {
-  const secret = process.env.GATE_BRIDGE_CRON_SECRET;
+  const secret = process.env.COMPANY_INTELLIGENCE_MIGRATION_SECRET;
   if (!secret) {
-    console.warn("company intelligence migration skipped: GATE_BRIDGE_CRON_SECRET unavailable");
+    console.warn("company intelligence migration skipped: COMPANY_INTELLIGENCE_MIGRATION_SECRET unavailable");
     return;
   }
   const endpoint = "https://job-hunt-os-api.vercel.app/v1/internal/company-intelligence/migrate-once";
