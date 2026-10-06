@@ -85,7 +85,8 @@ function normalizeRows(value:any):ProviderResult[]{
     Array.isArray(value?.data) ? value.data :
     Array.isArray(value?.data?.web) ? value.data.web :
     Array.isArray(value?.organic_results) ? value.organic_results :
-    Array.isArray(value?.web?.results) ? value.web.results : [];
+    Array.isArray(value?.web?.results) ? value.web.results :
+    Array.isArray(value?.data?.webPages?.value) ? value.data.webPages.value : [];
   return candidates.map((r:any)=>({
     url:r?.url||r?.link||r?.href,
     title:r?.title||r?.name,
@@ -99,7 +100,7 @@ async function providerSearch(env:ProviderEnv,id:string,query:string,max=10):Pro
   if(id==="tavily"){
     response=await fetch("https://api.tavily.com/search",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({api_key:key("TAVILY_API_KEY"),query,search_depth:"basic",max_results:max,topic:"general",include_answer:false})});
   } else if(id==="exa"){
-    response=await fetch("https://api.exa.ai/search",{method:"POST",headers:{"content-type":"application/json","x-api-key":key("EXA_API_KEY")},body:JSON.stringify({query,numResults:max,type:"fast"})});
+    response=await fetch("https://api.exa.ai/search",{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${key("EXA_API_KEY")}`},body:JSON.stringify({query,numResults:max,type:"fast"})});
   } else if(id==="firecrawl"){
     response=await fetch("https://api.firecrawl.dev/v2/search",{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${key("FIRECRAWL_API_KEY")}`},body:JSON.stringify({query,limit:max,sources:["web"]})});
   } else if(id==="langsearch"){
