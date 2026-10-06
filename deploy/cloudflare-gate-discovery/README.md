@@ -119,3 +119,33 @@ The provider broker uses daily soft limits and reserve percentages so one servic
 ## Free-provider policy
 
 Only providers that offer a usable free tier without mandatory card verification are included in the catalog. The broker keeps recurring monthly/daily pools separate from one-time signup credits. If a provider changes its signup or billing policy, disable its key and mark the catalog entry inactive before routing new work to it.
+
+
+## GitHub Actions secret sync
+
+The production deployment workflow reads provider keys from GitHub Actions secrets and syncs only the non-empty values into the existing Cloudflare Worker before deployment. Missing optional provider secrets are skipped and do not delete existing Cloudflare secrets.
+
+Required for deployment itself:
+
+```text
+CLOUDFLARE_API_TOKEN
+```
+
+Optional provider secrets:
+
+```text
+TAVILY_API_KEY
+EXA_API_KEY
+FIRECRAWL_API_KEY
+YEP_API_KEY
+LANGSEARCH_API_KEY
+SEARCHAPI_API_KEY
+SERPLY_API_KEY
+SEARCH1API_KEY
+CRAWLERAPI_API_KEY
+SIMPLECRAWL_API_KEY
+PILOTERR_API_KEY
+YAERIS_API_KEY
+```
+
+This keeps provider credentials out of source control and gives the deployment pipeline one controlled place to install or rotate integrations.
