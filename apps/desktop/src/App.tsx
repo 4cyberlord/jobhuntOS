@@ -17,6 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Kanban from "./pages/Kanban";
 import Opportunities from "./pages/Opportunities";
 import Companies from "./pages/Companies";
+import CompanyIntelligence from "./pages/CompanyIntelligence";
 import Contacts from "./pages/Contacts";
 import Calendar from "./pages/Calendar";
 import Documents from "./pages/Documents";
@@ -28,7 +29,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 
 const PAGES: Record<Route, () => React.JSX.Element> = {
-  dashboard: Dashboard, kanban: Kanban, opportunities: Opportunities, companies: Companies, contacts: Contacts, calendar: Calendar,
+  dashboard: Dashboard, kanban: Kanban, opportunities: Opportunities, companies: Companies, "company-intelligence": CompanyIntelligence, contacts: Contacts, calendar: Calendar,
   documents: Documents, vault: Vault, gate: Gate, inbox: AgentInbox, insights: Insights, notifications: Notifications, settings: Settings,
 };
 /** pages that manage their own internal scrolling panes */
