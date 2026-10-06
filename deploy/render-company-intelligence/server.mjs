@@ -5,9 +5,7 @@ import pg from "pg";
 const { Pool } = pg;
 const DATABASE_URL = process.env.DATABASE_URL;
 const WRITE_TOKEN = process.env.COMPANY_INTELLIGENCE_WRITE_TOKEN;
-if (!DATABASE_URL) throw new Error("DATABASE_URL is required");
-
-const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 });
+const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
 
 const schema = `
 CREATE TABLE IF NOT EXISTS companies (
@@ -101,7 +99,7 @@ CREATE INDEX IF NOT EXISTS discoveries_company_idx ON internship_discoveries(com
 CREATE INDEX IF NOT EXISTS scan_runs_company_idx ON scan_runs(company_id, started_at DESC);
 `;
 
-await pool.query(schema);
+if (pool) await pool.query(schema);
 
 const json = (res, status, body) => {
   res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*" });
@@ -163,7 +161,8 @@ const server = http.createServer(async (req,res) => {
     if (req.method === "OPTIONS") {
       res.writeHead(204, { "access-control-allow-origin":"*", "access-control-allow-headers":"authorization,content-type", "access-control-allow-methods":"GET,POST,PUT,OPTIONS" }); return res.end();
     }
-    if (req.method === "GET" && url.pathname === "/health") return json(res,200,{ok:true,service:"jobhunt-company-intelligence"});
+    if (req.method === "GET" && url.pathname === "/health") return json(res,200,{ok:true,service:"jobhunt-company-intelligence",database_configured:!!pool});
+    if (!pool) return json(res,503,{error:"database_not_configured"});
     if (req.method === "GET" && url.pathname === "/v1/companies/resolve") {
       const found=await resolveCompany({name:url.searchParams.get("name"),website:url.searchParams.get("website"),careers_url:url.searchParams.get("careers_url")});
       return found ? json(res,200,{ok:true,...found}) : json(res,404,{ok:false,error:"company_not_found"});
