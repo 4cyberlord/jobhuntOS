@@ -1,4 +1,4 @@
-import { BellIcon, BriefcaseIcon, BuildingOffice2Icon, CalendarDaysIcon, ChartBarIcon, InboxArrowDownIcon, Cog6ToothIcon, DocumentPlusIcon, DocumentTextIcon, InboxIcon, KeyIcon, LockClosedIcon, MagnifyingGlassIcon, PlusCircleIcon, Squares2X2Icon, UserGroupIcon, UserPlusIcon, ViewColumnsIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { BellIcon, BriefcaseIcon, BuildingOffice2Icon, CalendarDaysIcon, ChartBarIcon, CircleStackIcon, InboxArrowDownIcon, Cog6ToothIcon, DocumentPlusIcon, DocumentTextIcon, InboxIcon, KeyIcon, LockClosedIcon, MagnifyingGlassIcon, PlusCircleIcon, Squares2X2Icon, UserGroupIcon, UserPlusIcon, ViewColumnsIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import { Mark } from "./Mark";
 import { useData } from "../lib/store";
@@ -11,6 +11,7 @@ const NAV: { route: Route; label: string; icon: ComponentType<SVGProps<SVGSVGEle
   { route: "kanban", label: "Kanban", icon: ViewColumnsIcon },
   { route: "opportunities", label: "Opportunities", icon: BriefcaseIcon },
   { route: "companies", label: "Companies", icon: BuildingOffice2Icon },
+  { route: "company-intelligence", label: "Company Intelligence", icon: CircleStackIcon },
   { route: "contacts", label: "Contacts", icon: UserGroupIcon },
   { route: "calendar", label: "Calendar", icon: CalendarDaysIcon },
   { route: "documents", label: "Documents", icon: DocumentTextIcon },
