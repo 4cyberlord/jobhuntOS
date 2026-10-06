@@ -1,5 +1,6 @@
 import { companyIntelligenceView, scanCompanyIntelligence, upsertCompanyIntelligence } from "./company-intelligence";
 import { providerStatus, testConfiguredProviders, federatedSearch } from "./provider-broker";
+import { drainDiscoveryStaging, markStagingOutcome, stageDiscoveryCandidates, stagingStatus } from "./discovery-staging";
 interface Env {
   TAVILY_API_KEY?: string; EXA_API_KEY?: string; FIRECRAWL_API_KEY?: string; YEP_API_KEY?: string; YEP_API_URL?: string;
   LANGSEARCH_API_KEY?: string; SEARCHAPI_API_KEY?: string; SERPLY_API_KEY?: string; SEARCH1API_KEY?: string;
@@ -8,7 +9,7 @@ interface Env {
   LIFECYCLE_RELAY_URL: string; LIFECYCLE_EVENT_TOKEN: string; WATCH_ID: string; SEASON: string; COUNTRY: string;
   GATE_STATUS: KVNamespace; CANDIDATES: Queue<Candidate>; GATE_JOURNAL: D1Database;
 }
-type Candidate = { url: string; title?: string; source: "tavily" | "company_intelligence"; discovered_at: string; company_id?: string; company_name?: string; allowed_host?: string };
+type Candidate = { url: string; title?: string; source: string; discovered_at: string; company_id?: string; company_name?: string; allowed_host?: string };
 type Posting = { url: string; raw: string; title: string; provider: string };
 const MAX_POSTING_BYTES = 2_000_000;
 const SKILLS = ["PHP", "Laravel", "JavaScript", "TypeScript", "Python", "Java", "C++", "C#", "Go", "Rust", "Dart", "Flutter", "React", "Angular", "Vue", "Node.js", "Next.js", "SQL", "PostgreSQL", "PostGIS", "MySQL", "MongoDB", "Redis", "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Git", "Linux", "Terraform", "GraphQL", "REST", "Machine Learning", "TensorFlow", "PyTorch"];
@@ -84,36 +85,54 @@ async function completeRecord(candidate: Candidate, posting: Posting, env: Env) 
     metadata: { gate_status: "discovered", discovered_at: candidate.discovered_at, user_action_required: true }
   };
 }
-async function search(env: Env, query: string): Promise<Candidate[]> {
-  const federated=await federatedSearch(env,query,10);
-  return federated.results
-    .filter((r)=>typeof r.url==="string")
-    .map((r)=>({ url: canonicalUrl(r.url!), title:r.title?.slice(0,500), source:"tavily" as const, discovered_at:new Date().toISOString() }))
-    .filter((r)=>candidateUrl(r.url));
+async function search(env: Env, query: string) {
+  const federated = await federatedSearch(env, query, 10);
+  const candidates = federated.results
+    .filter((r) => typeof r.url === "string")
+    .map((r) => ({ url: canonicalUrl(r.url!), title: r.title?.slice(0, 500) }))
+    .filter((r) => candidateUrl(r.url));
+  return { provider: federated.provider ?? "federated", candidates };
 }
 
 async function discover(env: Env) {
   const seen = new Set<string>();
-  let found = 0, queued = 0, alreadyKnown = 0, failed = 0;
+  let found = 0, staged = 0, refreshed = 0, alreadyKnown = 0, failed = 0;
   const query = queries[Math.floor(Date.now() / 3_600_000) % queries.length];
   await lifecycle(env, { source: "cloudflare", phase: "search_starting", season: env.SEASON, query_count: 1 }).catch(() => undefined);
   for (const currentQuery of [query]) try {
-    for (const candidate of await search(env, currentQuery)) {
+    const result = await search(env, currentQuery);
+    const batch = [];
+    for (const candidate of result.candidates) {
       found++;
-      if (seen.has(candidate.url)) { alreadyKnown++; continue; }
+      if (seen.has(candidate.url)) continue;
       seen.add(candidate.url);
-      const key = await sha256(candidate.url);
-      const existing = await env.GATE_JOURNAL.prepare("SELECT state FROM gate_journal WHERE url_hash = ?").bind(key).first<{ state: string }>();
-      // Only genuinely unseen URLs enter the research queue. Retriable failures
-      // are recovered by recoverRetryingCandidates(), not rediscovered here.
-      if (existing) { alreadyKnown++; continue; }
-      await env.CANDIDATES.send(candidate);
-      queued++;
+      batch.push({ url: candidate.url, title: candidate.title, provider: result.provider, query: currentQuery });
     }
+    const written = await stageDiscoveryCandidates(env.GATE_JOURNAL, batch);
+    staged += written.inserted;
+    refreshed += written.refreshed;
+    alreadyKnown += written.already_known;
   } catch { failed++; }
-  const result = { watch: env.WATCH_ID, last_run: new Date().toISOString(), candidate_urls_found: found, queued, already_known: alreadyKnown, failed };
+  const result = {
+    watch: env.WATCH_ID,
+    last_run: new Date().toISOString(),
+    candidate_urls_found: found,
+    staged,
+    refreshed,
+    already_known: alreadyKnown,
+    failed
+  };
   await env.GATE_STATUS.put("latest", JSON.stringify(result), { expirationTtl: 60 * 60 * 24 * 14 });
-  await lifecycle(env, { source: "cloudflare", phase: "discovery_finished", candidates_found: found, new_candidates: found - alreadyKnown, already_known: alreadyKnown, queued, failed }).catch(() => undefined);
+  await lifecycle(env, {
+    source: "cloudflare",
+    phase: "discovery_finished",
+    candidates_found: found,
+    new_candidates: staged,
+    refreshed,
+    already_known: alreadyKnown,
+    staged,
+    failed
+  }).catch(() => undefined);
   return result;
 }
 async function runCompanyIntelligence(env: Env) {
@@ -134,13 +153,13 @@ async function recoverRetryingCandidates(env: Env) {
     await env.GATE_JOURNAL.prepare("UPDATE gate_journal SET state = 'retry_scheduled', updated_at = unixepoch() WHERE url = ? AND state = 'retrying'").bind(row.url).run();
   }
 }
-async function processCandidate(candidate: Candidate, env: Env) { const key = await sha256(candidate.url), existing = await env.GATE_JOURNAL.prepare("SELECT state FROM gate_journal WHERE url_hash = ?").bind(key).first<{ state: string }>(); if (existing?.state === "queued_for_import") return; await env.GATE_JOURNAL.prepare("INSERT INTO gate_journal (url_hash, url, state, attempts, updated_at) VALUES (?, ?, 'processing', 1, unixepoch()) ON CONFLICT(url_hash) DO UPDATE SET state='processing', attempts=attempts+1, updated_at=unixepoch(), last_error=NULL").bind(key, candidate.url).run(); try { const record = await completeRecord(candidate, await fetchOfficial(candidate.url, candidate.allowed_host), env); const response = await fetch(`${env.RAILWAY_BRIDGE_URL.replace(/\/+$/, "")}/v1/deliver`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${env.RAILWAY_DELIVERY_TOKEN}` }, body: JSON.stringify(record) }); const body = await response.json().catch(() => null) as { accepted?: boolean; queue_id?: string; error?: string } | null; if (!response.ok || !body?.accepted || !body.queue_id) throw new Error(`railway_bridge_${response.status}:${body?.error || "invalid_response"}`); await env.GATE_JOURNAL.prepare("UPDATE gate_journal SET state='queued_for_import', gate_opportunity_id=?, updated_at=unixepoch(), last_error=NULL WHERE url_hash=?").bind(body.queue_id, key).run();
+async function processCandidate(candidate: Candidate, env: Env) { const key = await sha256(candidate.url), existing = await env.GATE_JOURNAL.prepare("SELECT state FROM gate_journal WHERE url_hash = ?").bind(key).first<{ state: string }>(); if (existing?.state === "queued_for_import") { await markStagingOutcome(env.GATE_JOURNAL, candidate.url, "completed"); return; } await env.GATE_JOURNAL.prepare("INSERT INTO gate_journal (url_hash, url, state, attempts, updated_at) VALUES (?, ?, 'processing', 1, unixepoch()) ON CONFLICT(url_hash) DO UPDATE SET state='processing', attempts=attempts+1, updated_at=unixepoch(), last_error=NULL").bind(key, candidate.url).run(); try { const record = await completeRecord(candidate, await fetchOfficial(candidate.url, candidate.allowed_host), env); const response = await fetch(`${env.RAILWAY_BRIDGE_URL.replace(/\/+$/, "")}/v1/deliver`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${env.RAILWAY_DELIVERY_TOKEN}` }, body: JSON.stringify(record) }); const body = await response.json().catch(() => null) as { accepted?: boolean; queue_id?: string; error?: string } | null; if (!response.ok || !body?.accepted || !body.queue_id) throw new Error(`railway_bridge_${response.status}:${body?.error || "invalid_response"}`); await env.GATE_JOURNAL.prepare("UPDATE gate_journal SET state='queued_for_import', gate_opportunity_id=?, updated_at=unixepoch(), last_error=NULL WHERE url_hash=?").bind(body.queue_id, key).run(); await markStagingOutcome(env.GATE_JOURNAL, candidate.url, "completed");
     const company = record.company?.name ?? "Not specified";
     const role = record.opportunity?.title ?? "Not specified";
     const score = typeof record.match?.score === "number" ? record.match.score : undefined;
-    await lifecycle(env, { source: "cloudflare", phase: "handoff_complete", company, role, score, gate_id: body.queue_id }).catch(() => undefined); } catch (error) { const message = String(error instanceof Error ? error.message : error).slice(0, 1000), terminal = /unverified|too_short|too_large|company_or_title|railway_bridge_4(?:00|22)/.test(message); await env.GATE_JOURNAL.prepare("UPDATE gate_journal SET state=?, updated_at=unixepoch(), last_error=? WHERE url_hash=?").bind(terminal ? "failed" : "retrying", message, key).run(); if (!terminal) throw error; } }
+    await lifecycle(env, { source: "cloudflare", phase: "handoff_complete", company, role, score, gate_id: body.queue_id }).catch(() => undefined); } catch (error) { const message = String(error instanceof Error ? error.message : error).slice(0, 1000), terminal = /unverified|too_short|too_large|company_or_title|railway_bridge_4(?:00|22)/.test(message); await env.GATE_JOURNAL.prepare("UPDATE gate_journal SET state=?, updated_at=unixepoch(), last_error=? WHERE url_hash=?").bind(terminal ? "failed" : "retrying", message, key).run(); await markStagingOutcome(env.GATE_JOURNAL, candidate.url, terminal ? "rejected" : "retrying", message); if (!terminal) throw error; } }
 export default { async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) { ctx.waitUntil(controller.cron === "* * * * *"
-    ? Promise.all([importBridge(env), recoverRetryingCandidates(env)])
+    ? Promise.all([importBridge(env), recoverRetryingCandidates(env), drainDiscoveryStaging(env.GATE_JOURNAL, env.CANDIDATES, 5)])
     : controller.cron === "*/15 * * * *"
       ? runCompanyIntelligence(env)
       : discover(env)); }, async queue(batch: MessageBatch<unknown>, env: Env) {
@@ -152,7 +171,8 @@ export default { async scheduled(controller: ScheduledController, env: Env, ctx:
   if (batch.messages.length > 0) {
     await lifecycle(env, { source: "cloudflare", phase: "research_finished", researched, valid: handed_off, rejected: 0, handed_off, failed }).catch(() => undefined);
   }
-}, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "0 * * * *", company_intelligence_schedule: "*/15 * * * *", bridge_import_schedule: "* * * * *", provider_broker: "federated-v1", processor: "queues+d1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
+}, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "0 * * * *", company_intelligence_schedule: "*/15 * * * *", bridge_import_schedule: "* * * * *", provider_broker: "federated-v1", processor: "staging+d1+queues", staging: "discovery-inbox-v1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
+if (req.method === "GET" && path === "/staging/status") return json({ ok: true, ...(await stagingStatus(env.GATE_JOURNAL)) });
 if (req.method === "GET" && path === "/company-intelligence") {
   return json({ ok: true, ...(await companyIntelligenceView(env)) });
 }
@@ -172,4 +192,28 @@ if (req.method === "POST" && path === "/company-intelligence/companies") {
   const body = await req.json().catch(() => null);
   try { return json(await upsertCompanyIntelligence(env, body), 201); }
   catch (e) { return json({ error: e instanceof Error ? e.message : "invalid_payload" }, 422); }
-} if (req.method === "POST" && path === "/internal/run") { if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401); return json({ ok: true, ...(await discover(env)) }); } if (req.method === "POST" && path === "/internal/candidates") { if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401); const body = await req.json().catch(() => null) as { url?: unknown; title?: unknown } | null; if (!body || typeof body.url !== "string" || !candidateUrl(body.url)) return json({ error: "official_https_url_required" }, 422); const candidate: Candidate = { url: canonicalUrl(body.url), title: typeof body.title === "string" ? body.title.slice(0, 500) : undefined, source: "tavily", discovered_at: new Date().toISOString() }; await env.CANDIDATES.send(candidate); return json({ ok: true, queued: true, url: candidate.url }, 202); } return json({ error: "not_found" }, 404); } } satisfies ExportedHandler<Env>;
+} if (req.method === "POST" && path === "/internal/run") { if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401); return json({ ok: true, ...(await discover(env)) }); } if (req.method === "POST" && path === "/internal/candidates") {
+  if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401);
+  const body = await req.json().catch(() => null) as { url?: unknown; title?: unknown; company?: unknown; provider?: unknown; candidates?: unknown[] } | null;
+  if (!body) return json({ error: "invalid_payload" }, 422);
+  const rawItems = Array.isArray(body.candidates) ? body.candidates : [body];
+  const inputs = rawItems.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as { url?: unknown; title?: unknown; company?: unknown; provider?: unknown };
+    if (typeof row.url !== "string" || !candidateUrl(row.url)) return [];
+    return [{
+      url: canonicalUrl(row.url),
+      title: typeof row.title === "string" ? row.title.slice(0, 500) : undefined,
+      company: typeof row.company === "string" ? row.company.slice(0, 300) : undefined,
+      provider: typeof row.provider === "string" ? row.provider.slice(0, 80) : (typeof body.provider === "string" ? body.provider.slice(0, 80) : "manual"),
+      query: "external_handoff"
+    }];
+  });
+  if (!inputs.length) return json({ error: "official_https_url_required" }, 422);
+  const staged = await stageDiscoveryCandidates(env.GATE_JOURNAL, inputs);
+  return json({ ok: true, staged }, 202);
+}
+if (req.method === "POST" && path === "/internal/staging/drain") {
+  if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401);
+  return json({ ok: true, ...(await drainDiscoveryStaging(env.GATE_JOURNAL, env.CANDIDATES, 10)) });
+} return json({ error: "not_found" }, 404); } } satisfies ExportedHandler<Env>;
