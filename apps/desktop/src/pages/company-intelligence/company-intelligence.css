@@ -68,3 +68,25 @@
 .ci-url em { color:var(--muted); font-style:normal; font-size:calc(10.5px * var(--fs,1)); }
 .ci-detail-loading { padding:30px; display:flex; align-items:center; gap:8px; color:var(--muted); }
 .ci-detail-loading svg { width:18px; height:18px; }
+
+.ci-provider-panel { margin-bottom:16px; overflow:hidden; }
+.ci-provider-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:13px 15px; border-bottom:1px solid var(--line); }
+.ci-provider-head > div { display:grid; gap:2px; }
+.ci-provider-head span { color:var(--muted); font-size:calc(11.5px * var(--fs,1)); }
+.ci-provider-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; padding:12px; }
+.ci-provider-card { min-width:0; display:grid; gap:6px; padding:11px; border:1px solid var(--line); border-radius:11px; background:var(--panel-2); }
+.ci-provider-top { display:flex; align-items:center; gap:8px; min-width:0; }
+.ci-provider-top > div { min-width:0; display:grid; }
+.ci-provider-top b { text-transform:capitalize; font-size:calc(12.5px * var(--fs,1)); }
+.ci-provider-top small { color:var(--muted); font-size:calc(10.5px * var(--fs,1)); }
+.ci-provider-card strong { font-size:calc(11.5px * var(--fs,1)); color:var(--text-2); }
+.ci-provider-card > span,.ci-provider-card > em { color:var(--muted); font-size:calc(10.5px * var(--fs,1)); font-style:normal; line-height:1.35; }
+.ci-provider-card > em { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-provider-dot { width:9px; height:9px; border-radius:50%; flex:none; background:var(--muted); }
+.ci-provider-dot.ok { background:var(--green); box-shadow:0 0 0 3px var(--green-soft); }
+.ci-provider-dot.bad { background:var(--red); box-shadow:0 0 0 3px var(--red-soft); }
+.ci-provider-dot.pending { background:var(--amber); box-shadow:0 0 0 3px var(--amber-soft); }
+.ci-provider-dot.off { background:var(--muted); opacity:.45; }
+.ci-provider-empty { grid-column:1/-1; padding:10px; color:var(--muted); font-size:calc(11.5px * var(--fs,1)); }
+@media (max-width:1200px) { .ci-provider-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:900px) { .ci-provider-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }

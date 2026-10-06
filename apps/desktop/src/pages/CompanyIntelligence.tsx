@@ -15,18 +15,27 @@ type CareerSource = { id:string; url:string; host:string; source_type:string; pr
 type Discovery = { id:string; title:string; apply_url:string; canonical_url:string; season?:string|null; location?:string|null; work_arrangement?:string|null; discovered_at?:string|null; last_seen_at?:string|null; posting_status?:string|null; match_score?:number|null; eligibility_risk?:string|null; gate_id?:string|null };
 type Detail = { ok:boolean; company:Company; career_sources:CareerSource[]; discoveries:Discovery[] };
 type IntelligenceResponse = { ok:boolean; generated_at?:string; summary?:Summary; companies?:Company[] };
+type Provider = {
+  id:string; capability:"search"|"crawl"; budgetType:string; advertisedLimit?:number|null; dailySoftLimit:number; reservePercent:number;
+  notes:string; adapter:string; configured:boolean; integration_state:string; used_today:number; total_used:number; remaining_today:number;
+  healthy?:boolean; last_checked_at?:string|null; last_success_at?:string|null; consecutive_failures?:number; last_error?:string|null;
+};
+type ProviderResponse = { ok:boolean; generated_at?:string; providers?:Provider[] };
 
 const fmtTime=(value?:string|number|null)=>{ if(!value)return "Never"; const d=typeof value==="number"?new Date(value*1000):new Date(value); return Number.isNaN(d.getTime())?"Never":d.toLocaleString(); };
 const health=(c:Company)=>((c.failing_source_count??0)>0||(c.consecutive_failures??0)>0)?"attention":(c.verified_source_count??0)>0?"healthy":"unknown";
 
 export default function CompanyIntelligence(){
-  const [data,setData]=useState<IntelligenceResponse|null>(null), [loading,setLoading]=useState(true), [error,setError]=useState("");
+  const [data,setData]=useState<IntelligenceResponse|null>(null), [providers,setProviders]=useState<ProviderResponse|null>(null), [loading,setLoading]=useState(true), [error,setError]=useState("");
   const [query,setQuery]=useState(""), [filter,setFilter]=useState<"all"|"healthy"|"attention"|"unknown">("all");
   const [reconciling,setReconciling]=useState(false), [reconcileNote,setReconcileNote]=useState("");
   const [detail,setDetail]=useState<Detail|null>(null), [detailLoading,setDetailLoading]=useState(false);
 
   const auth=()=>{ const cfg=readSyncConfig(); if(!cfg.apiUrl||!cfg.syncKey)throw new Error("Sign in to Job Hunt OS first."); return {base:cfg.apiUrl.replace(/\/+$/,""),headers:{Authorization:`Bearer ${cfg.syncKey}`}}; };
-  const load=async()=>{ setLoading(true);setError("");try{const a=auth();const r=await fetch(`${a.base}/v1/desktop/company-intelligence`,{headers:a.headers});if(!r.ok)throw new Error(`Server returned ${r.status}`);setData(await r.json() as IntelligenceResponse);}catch(e){setError(e instanceof Error?e.message:"Could not load Company Intelligence.");}finally{setLoading(false);} };
+  const load=async()=>{ setLoading(true);setError("");try{const a=auth();const [r,p]=await Promise.all([
+    fetch(`${a.base}/v1/desktop/company-intelligence`,{headers:a.headers}),
+    fetch(`${a.base}/v1/desktop/company-intelligence/providers`,{headers:a.headers}).catch(()=>null)
+  ]);if(!r.ok)throw new Error(`Server returned ${r.status}`);setData(await r.json() as IntelligenceResponse);if(p?.ok)setProviders(await p.json() as ProviderResponse);}catch(e){setError(e instanceof Error?e.message:"Could not load Company Intelligence.");}finally{setLoading(false);} };
   useEffect(()=>{void load();},[]);
   const openCompany=async(id:string)=>{setDetailLoading(true);try{const a=auth();const r=await fetch(`${a.base}/v1/desktop/company-intelligence/${encodeURIComponent(id)}`,{headers:a.headers});if(!r.ok)throw new Error(`Server returned ${r.status}`);setDetail(await r.json() as Detail);}catch(e){setError(e instanceof Error?e.message:"Could not load company details.");}finally{setDetailLoading(false);} };
   const reconcile=async()=>{setReconciling(true);setReconcileNote("");try{const a=auth();const r=await fetch(`${a.base}/v1/desktop/company-intelligence/reconcile`,{method:"POST",headers:a.headers});const body=await r.json().catch(()=>({})) as {linked?:number;already_linked?:number;unresolved?:number;error?:string};if(!r.ok)throw new Error(body.error??`Server returned ${r.status}`);setReconcileNote(`${body.linked??0} linked · ${body.already_linked??0} already linked · ${body.unresolved??0} unresolved`);await load();}catch(e){setReconcileNote(e instanceof Error?e.message:"Company reconciliation failed.");}finally{setReconciling(false);} };
@@ -43,6 +52,19 @@ export default function CompanyIntelligence(){
       <article className="card ci-stat"><span className="ci-stat-icon purple"><ServerStackIcon/></span><div><small>Technical employers</small><b>{technical.toLocaleString()}</b><em>Eligible for tech-role scans</em></div></article>
       <article className="card ci-stat"><span className="ci-stat-icon green"><ShieldCheckIcon/></span><div><small>Verified career sources</small><b>{verified.toLocaleString()}</b><em>{s.career_sources??0} total sources</em></div></article>
       <article className="card ci-stat"><span className="ci-stat-icon amber"><ExclamationTriangleIcon/></span><div><small>Failing sources</small><b>{failing.toLocaleString()}</b><em>Require source recovery</em></div></article>
+    </section>
+    <section className="card ci-provider-panel">
+      <header className="ci-provider-head"><div><b>Discovery provider network</b><span>Search and crawler integrations used by GATE. Credentials stay server-side.</span></div><span>{(providers?.providers??[]).filter(p=>p.configured).length} configured · {(providers?.providers??[]).filter(p=>p.integration_state==="verified").length} verified</span></header>
+      <div className="ci-provider-grid">
+        {(providers?.providers??[]).map(p=><article key={p.id} className="ci-provider-card">
+          <div className="ci-provider-top"><span className={`ci-provider-dot ${p.integration_state==="verified"?"ok":p.integration_state==="failing"?"bad":p.configured?"pending":"off"}`}/><div><b>{p.id}</b><small>{p.capability} · {p.budgetType.replace("_"," ")}</small></div></div>
+          <strong>{p.integration_state==="verified"?"Verified":p.integration_state==="failing"?"Failing":p.integration_state==="configured_untested"?"Configured · untested":p.integration_state==="credential_present_adapter_pending"?"Credential present · adapter pending":"Not configured"}</strong>
+          <span>{p.used_today}/{p.dailySoftLimit} soft-budget units today · {p.reservePercent}% reserve</span>
+          <em>{p.last_error||p.notes}</em>
+        </article>)}
+        {providers&&!providers.providers?.length&&<div className="ci-provider-empty">No discovery provider records reported yet.</div>}
+        {!providers&&<div className="ci-provider-empty">Provider status will appear after the Cloudflare discovery worker is upgraded.</div>}
+      </div>
     </section>
     <section className="card ci-panel"><header className="ci-toolbar"><div><b>Employer coverage</b><span>{companies.length} companies shown</span></div><div className="ci-tools"><label className="search-field ci-search"><MagnifyingGlassIcon/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search company, state, industry..."/></label><select value={filter} onChange={e=>setFilter(e.target.value as typeof filter)}><option value="all">All health states</option><option value="healthy">Healthy</option><option value="attention">Needs attention</option><option value="unknown">Unverified</option></select></div></header>
       <div className="ci-table-wrap"><table className="ci-table"><thead><tr><th>Company</th><th>Industry</th><th>State</th><th>Priority</th><th>Career sources</th><th>Health</th><th>Last checked</th><th>Next check</th></tr></thead><tbody>

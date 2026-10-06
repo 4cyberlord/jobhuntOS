@@ -1,6 +1,13 @@
 import { companyIntelligenceView, scanCompanyIntelligence, upsertCompanyIntelligence } from "./company-intelligence";
-import { reserveTavilyCredit, TAVILY_DAILY_LIMIT } from "./usage";
-interface Env { TAVILY_API_KEY: string; RUN_TOKEN: string; RAILWAY_BRIDGE_URL: string; RAILWAY_DELIVERY_TOKEN: string; GATE_IMPORT_URL: string; GATE_BRIDGE_CRON_SECRET: string; LIFECYCLE_RELAY_URL: string; LIFECYCLE_EVENT_TOKEN: string; WATCH_ID: string; SEASON: string; COUNTRY: string; GATE_STATUS: KVNamespace; CANDIDATES: Queue<Candidate>; GATE_JOURNAL: D1Database; }
+import { providerStatus, testConfiguredProviders, federatedSearch } from "./provider-broker";
+interface Env {
+  TAVILY_API_KEY?: string; EXA_API_KEY?: string; FIRECRAWL_API_KEY?: string; YEP_API_KEY?: string; YEP_API_URL?: string;
+  LANGSEARCH_API_KEY?: string; SEARCHAPI_API_KEY?: string; SERPLY_API_KEY?: string; SEARCH1API_KEY?: string;
+  CRAWLERAPI_API_KEY?: string; SIMPLECRAWL_API_KEY?: string; PILOTERR_API_KEY?: string; YAERIS_API_KEY?: string;
+  RUN_TOKEN: string; RAILWAY_BRIDGE_URL: string; RAILWAY_DELIVERY_TOKEN: string; GATE_IMPORT_URL: string; GATE_BRIDGE_CRON_SECRET: string;
+  LIFECYCLE_RELAY_URL: string; LIFECYCLE_EVENT_TOKEN: string; WATCH_ID: string; SEASON: string; COUNTRY: string;
+  GATE_STATUS: KVNamespace; CANDIDATES: Queue<Candidate>; GATE_JOURNAL: D1Database;
+}
 type Candidate = { url: string; title?: string; source: "tavily" | "company_intelligence"; discovered_at: string; company_id?: string; company_name?: string; allowed_host?: string };
 type Posting = { url: string; raw: string; title: string; provider: string };
 const MAX_POSTING_BYTES = 2_000_000;
@@ -77,7 +84,14 @@ async function completeRecord(candidate: Candidate, posting: Posting, env: Env) 
     metadata: { gate_status: "discovered", discovered_at: candidate.discovered_at, user_action_required: true }
   };
 }
-async function search(env: Env, query: string): Promise<Candidate[]> { if (!await reserveTavilyCredit(env.GATE_STATUS)) return []; const response = await fetch("https://api.tavily.com/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ api_key: env.TAVILY_API_KEY, query, search_depth: "basic", max_results: 5, topic: "general", include_answer: false }) }); if (!response.ok) throw new Error(`tavily_http_${response.status}`); const body = await response.json() as { results?: Array<{ url?: string; title?: string }> }; return (body.results ?? []).flatMap((row) => row.url && candidateUrl(row.url) ? [{ url: canonicalUrl(row.url), title: row.title, source: "tavily" as const, discovered_at: new Date().toISOString() }] : []); }
+async function search(env: Env, query: string): Promise<Candidate[]> {
+  const federated=await federatedSearch(env,query,10);
+  return federated.results
+    .filter((r)=>typeof r.url==="string")
+    .map((r)=>({ url: canonicalUrl(r.url!), title:r.title?.slice(0,500), source:"tavily" as const, discovered_at:new Date().toISOString() }))
+    .filter((r)=>candidateUrl(r.url));
+}
+
 async function discover(env: Env) {
   const seen = new Set<string>();
   let found = 0, queued = 0, alreadyKnown = 0, failed = 0;
@@ -138,9 +152,16 @@ export default { async scheduled(controller: ScheduledController, env: Env, ctx:
   if (batch.messages.length > 0) {
     await lifecycle(env, { source: "cloudflare", phase: "research_finished", researched, valid: handed_off, rejected: 0, handed_off, failed }).catch(() => undefined);
   }
-}, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "0 * * * *", company_intelligence_schedule: "*/15 * * * *", bridge_import_schedule: "* * * * *", tavily_daily_budget: TAVILY_DAILY_LIMIT, processor: "queues+d1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
+}, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "0 * * * *", company_intelligence_schedule: "*/15 * * * *", bridge_import_schedule: "* * * * *", provider_broker: "federated-v1", processor: "queues+d1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
 if (req.method === "GET" && path === "/company-intelligence") {
   return json({ ok: true, ...(await companyIntelligenceView(env)) });
+}
+if (req.method === "GET" && path === "/providers") {
+  return json({ ok:true, ...(await providerStatus(env)) });
+}
+if (req.method === "POST" && path === "/providers/test") {
+  if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error:"unauthorized" },401);
+  return json({ ok:true, ...(await testConfiguredProviders(env)) });
 }
 if (req.method === "POST" && path === "/company-intelligence/scan") {
   if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401);
