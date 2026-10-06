@@ -100,6 +100,12 @@ async function discover(env: Env) {
   await lifecycle(env, { source: "cloudflare", phase: "discovery_finished", candidates_found: found, new_candidates: found - alreadyKnown, already_known: alreadyKnown, queued, failed }).catch(() => undefined);
   return result;
 }
+async function runCompanyIntelligence(env: Env) {
+  await lifecycle(env, { source: "company_intelligence", prefix: "🏢 COMPANY-INTEL", phase: "scan_starting" }).catch(() => undefined);
+  const result = await scanCompanyIntelligence(env);
+  await lifecycle(env, { source: "company_intelligence", prefix: "🏢 COMPANY-INTEL", phase: "scan_finished", ...result }).catch(() => undefined);
+  return result;
+}
 /** Calls Job Hunt OS, never Railway/Postgres. Job Hunt OS owns claim/persist/ACK. */
 async function importBridge(env: Env) { const response = await fetch(env.GATE_IMPORT_URL, { method: "POST", headers: { authorization: `Bearer ${env.GATE_BRIDGE_CRON_SECRET}` } }); if (!response.ok) throw new Error(`gate_bridge_import_${response.status}`); return response.json() as Promise<unknown>; }
 /** Queue retries are finite; the D1 journal is the durable recovery source. */
@@ -120,7 +126,7 @@ async function processCandidate(candidate: Candidate, env: Env) { const key = aw
 export default { async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) { ctx.waitUntil(controller.cron === "* * * * *"
     ? Promise.all([importBridge(env), recoverRetryingCandidates(env)])
     : controller.cron === "7 */2 * * *"
-      ? scanCompanyIntelligence(env)
+      ? runCompanyIntelligence(env)
       : discover(env)); }, async queue(batch: MessageBatch<unknown>, env: Env) {
   let researched = 0, handed_off = 0, failed = 0;
   for (const message of batch.messages) {
