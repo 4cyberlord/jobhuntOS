@@ -6,6 +6,7 @@ import * as jose from "jose";
 const { Pool } = pg;
 const DATABASE_URL = process.env.DATABASE_URL;
 const WRITE_TOKEN = process.env.COMPANY_INTELLIGENCE_WRITE_TOKEN;
+const MIGRATION_TOKEN = process.env.COMPANY_INTELLIGENCE_MIGRATION_SECRET;
 const VERCEL_TEAM_SLUG = process.env.VERCEL_TEAM_SLUG || "cyberlords-projects-c47490f9";
 const VERCEL_PROJECT_NAME = process.env.VERCEL_PROJECT_NAME || "job-hunt-os-api";
 const VERCEL_ISSUER = `https://oidc.vercel.com/${VERCEL_TEAM_SLUG}`;
@@ -160,6 +161,10 @@ const authorized = async req => {
   if (!got) return false;
   if (WRITE_TOKEN) {
     const a = Buffer.from(got), b = Buffer.from(WRITE_TOKEN);
+    if (a.length === b.length && crypto.timingSafeEqual(a,b)) return true;
+  }
+  if (MIGRATION_TOKEN) {
+    const a = Buffer.from(got), b = Buffer.from(MIGRATION_TOKEN);
     if (a.length === b.length && crypto.timingSafeEqual(a,b)) return true;
   }
   try {
