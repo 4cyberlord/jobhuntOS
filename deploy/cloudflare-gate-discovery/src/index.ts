@@ -132,7 +132,6 @@ export default { async scheduled(controller: ScheduledController, env: Env, ctx:
   }
 }, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "*/30 * * * *", bridge_import_schedule: "* * * * *", processor: "queues+d1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
 if (req.method === "GET" && path === "/company-intelligence") {
-  if (req.headers.get("authorization") !== `Bearer ${env.RUN_TOKEN}`) return json({ error: "unauthorized" }, 401);
   return json({ ok: true, ...(await companyIntelligenceView(env)) });
 }
 if (req.method === "POST" && path === "/company-intelligence/scan") {
