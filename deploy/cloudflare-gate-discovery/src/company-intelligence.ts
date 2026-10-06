@@ -1,4 +1,4 @@
-import { reserveTavilyCredit } from "./usage";
+import { federatedSearch } from "./provider-broker";
 export type IntelligenceCandidate = {
   url: string;
   title?: string;
@@ -10,7 +10,19 @@ export type IntelligenceCandidate = {
 };
 
 type IntelligenceEnv = {
-  TAVILY_API_KEY: string;
+  TAVILY_API_KEY?: string;
+  EXA_API_KEY?: string;
+  FIRECRAWL_API_KEY?: string;
+  YEP_API_KEY?: string;
+  YEP_API_URL?: string;
+  LANGSEARCH_API_KEY?: string;
+  SEARCHAPI_API_KEY?: string;
+  SERPLY_API_KEY?: string;
+  SEARCH1API_KEY?: string;
+  CRAWLERAPI_API_KEY?: string;
+  SIMPLECRAWL_API_KEY?: string;
+  PILOTERR_API_KEY?: string;
+  YAERIS_API_KEY?: string;
   SEASON: string;
   GATE_IMPORT_URL: string;
   GATE_BRIDGE_CRON_SECRET: string;
@@ -85,16 +97,9 @@ async function api(env: IntelligenceEnv, path: string, init: RequestInit = {}) {
   if (!r.ok) throw new Error(body?.error || `company_intelligence_api_${r.status}`);
   return body;
 }
-async function tavily(env: IntelligenceEnv, query: string, max = 10) {
-  if (!await reserveTavilyCredit(env.GATE_STATUS)) return [];
-  const response = await fetch("https://api.tavily.com/search", {
-    method:"POST",
-    headers:{"content-type":"application/json"},
-    body:JSON.stringify({ api_key:env.TAVILY_API_KEY, query, search_depth:"basic", max_results:max, topic:"general", include_answer:false })
-  });
-  if(!response.ok) throw new Error("tavily_http_"+response.status);
-  const body = await response.json() as { results?: SearchResult[] };
-  return body.results ?? [];
+async function searchWeb(env: IntelligenceEnv, query: string, max = 10) {
+  const result = await federatedSearch(env, query, max);
+  return result.results as SearchResult[];
 }
 
 function companyResultScore(name: string, row: SearchResult) {
@@ -168,7 +173,7 @@ async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
   let corporateHost=hostOf(website);
 
   if(!website){
-    const results=await tavily(env,`"${name}" official company website careers jobs`,8);
+    const results=await searchWeb(env,`"${name}" official company website careers jobs`,8);
     const best=results.sort((a,b)=>companyResultScore(name,b)-companyResultScore(name,a))[0];
     if(best?.url && companyResultScore(name,best)>=3){
       try {
@@ -207,7 +212,7 @@ async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
     : [`"${name}" careers jobs software engineering`];
 
   for(const q of queries){
-    for(const row of await tavily(env,q,10)){
+    for(const row of await searchWeb(env,q,10)){
       if(!row.url) continue;
       let u:URL; try{u=new URL(row.url);}catch{continue;}
       if(u.protocol!=="https:") continue;
@@ -251,7 +256,7 @@ async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Arr
     let rows=await directSourceResults(source.url,env.SEASON);
     if(rows.length===0){
       const query=`site:${host} "${env.SEASON}" (intern OR internship OR co-op) (software OR engineering OR technology OR data OR security OR cloud OR "machine learning")`;
-      rows=await tavily(env,query,10);
+      rows=await searchWeb(env,query,10);
     }
     for(const row of rows){
       if(!row.url) continue;
