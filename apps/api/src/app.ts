@@ -194,6 +194,12 @@ export async function buildApp() {
   app.post("/v1/agent/gate/deliveries/claim", async (request) => { const limit = Math.min(20, Math.max(1, Number((request.body as { limit?: number })?.limit ?? 5))); return { items: await claimPendingDeliveries(limit) }; });
   app.post("/v1/agent/gate/enrich", async (request) => { const b = request.body as { limit?: number; force?: boolean } | undefined; return enrichPending(Math.min(9, Math.max(1, Number(b?.limit ?? 6))), b?.force === true); });
   app.get("/v1/agent/gate/decisions", async () => gateDecisions());
+  app.get("/v1/desktop/company-intelligence", async (_request, reply) => {
+    const base = (process.env.GATE_DISCOVERY_URL || "https://gate-discovery.4cyberlord.workers.dev").replace(/\/+$/, "");
+    const response = await fetch(`${base}/company-intelligence`, { headers: { "user-agent": "job-hunt-os-api/1.0" } });
+    if (!response.ok) return reply.code(502).send({ error: `company intelligence upstream returned ${response.status}` });
+    return reply.send(await response.json());
+  });
   app.get("/v1/desktop/gate/opportunities", async (request, reply) => { const q = request.query as { since?: string; after_id?: string }; if (q.since && Number.isNaN(Date.parse(q.since))) return reply.code(422).send({ error: "since must be an ISO date" }); return gateForDesktop(q.since, q.after_id); });
   const gateStatusBody = z.object({ gate_status: z.enum(GATE_STATUSES), linked_job_id: z.string().max(100).optional() });
   app.post("/v1/desktop/gate/:id/status", async (request, reply) => { const body = gateStatusBody.safeParse(request.body); if (!body.success) return reply.code(422).send({ error: "invalid payload", details: body.error.flatten() }); const ok = await setGateStatus((request.params as { id: string }).id, body.data.gate_status, body.data.linked_job_id); return ok ? reply.send({ success: true }) : reply.code(404).send({ error: "not found" }); });
