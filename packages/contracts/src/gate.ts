@@ -66,6 +66,8 @@ const company = z.object({
   logo_url: url.nullish(),
   industry: text(120).nullish(),
   headquarters: text(160).nullish(),
+  /** Stable ID in the external Company Intelligence registry. */
+  intelligence_id: text(100).nullish(),
 }).passthrough();
 
 const satisfiedRequirement = z.object({ requirement: text(500), evidence: text(2000).nullish(), profile_evidence: text(2000).nullish(), confidence: z.number().min(0).max(1).optional() }).passthrough();
