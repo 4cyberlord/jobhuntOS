@@ -134,11 +134,17 @@ const fortuneSeed = [
   [6,"CVS Health"],[7,"Berkshire Hathaway"],[8,"McKesson"],[9,"Exxon Mobil Holdings"],[10,"Cencora"]
 ];
 for (const [rank,name] of fortuneSeed) {
-  const id="co_"+crypto.createHash("sha256").update("fortune500:2026:"+String(name).toLowerCase()).digest("hex").slice(0,20);
+  const normalized=String(name).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  const existing=await pool.query(`SELECT DISTINCT c.id FROM companies c LEFT JOIN company_aliases a ON a.company_id=c.id
+    WHERE lower(regexp_replace(c.canonical_name,'[^a-zA-Z0-9]+',' ','g'))=$1
+       OR lower(regexp_replace(coalesce(c.legal_name,''),'[^a-zA-Z0-9]+',' ','g'))=$1
+       OR lower(regexp_replace(coalesce(a.alias,''),'[^a-zA-Z0-9]+',' ','g'))=$1 LIMIT 2`,[normalized]);
+  const id=existing.rows.length===1 ? existing.rows[0].id : "cmp_"+crypto.createHash("sha256").update(normalized).digest("hex").slice(0,16);
+  const provenance=JSON.stringify([{source:"Fortune 500",year:2026,url:"https://fortune.com/ranking/fortune500/"}]);
   await pool.query(`INSERT INTO companies(id,canonical_name,country,priority,technical_employer,active,fortune_500,source_provenance,employer_score,updated_at)
     VALUES($1,$2,'US',1,true,true,true,$3::jsonb,100,now())
-    ON CONFLICT(id) DO UPDATE SET fortune_500=true,priority=LEAST(companies.priority,1),employer_score=GREATEST(companies.employer_score,100),source_provenance=EXCLUDED.source_provenance,updated_at=now()`,
-    [id,name,JSON.stringify([{source:"Fortune 500",year:2026,rank,url:"https://fortune.com/ranking/fortune500/"}])]);
+    ON CONFLICT(id) DO UPDATE SET fortune_500=true,priority=LEAST(companies.priority,1),employer_score=GREATEST(companies.employer_score,100),
+      source_provenance=companies.source_provenance || EXCLUDED.source_provenance,updated_at=now()`,[id,name,provenance]);
   await pool.query(`INSERT INTO company_rankings(company_id,list_name,list_year,rank,source_url,metadata)
     VALUES($1,'Fortune 500',2026,$2,'https://fortune.com/ranking/fortune500/','{}'::jsonb)
     ON CONFLICT(company_id,list_name,list_year) DO UPDATE SET rank=EXCLUDED.rank,source_url=EXCLUDED.source_url`,[id,rank]);
