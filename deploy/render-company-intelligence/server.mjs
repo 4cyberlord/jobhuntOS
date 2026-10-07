@@ -115,6 +115,10 @@ CREATE TABLE IF NOT EXISTS internship_discoveries (
   UNIQUE(canonical_url)
 );
 
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS source_provenance JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS employer_score SMALLINT NOT NULL DEFAULT 50;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS scan_lease_until TIMESTAMPTZ;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS scan_lease_owner TEXT;
 CREATE INDEX IF NOT EXISTS companies_due_idx ON companies(active, next_check_at, priority);
 CREATE INDEX IF NOT EXISTS companies_employer_due_idx ON companies(active, employer_score DESC, next_check_at, priority);
 CREATE INDEX IF NOT EXISTS companies_name_idx ON companies(canonical_name);
