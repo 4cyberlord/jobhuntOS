@@ -129,6 +129,20 @@ CREATE INDEX IF NOT EXISTS scan_runs_company_idx ON scan_runs(company_id, starte
 `;
 
 if (pool) await pool.query(schema);
+const fortuneSeed = [
+  [1,"Amazon"],[2,"Walmart"],[3,"UnitedHealth Group"],[4,"Apple"],[5,"Alphabet"],
+  [6,"CVS Health"],[7,"Berkshire Hathaway"],[8,"McKesson"],[9,"Exxon Mobil Holdings"],[10,"Cencora"]
+];
+for (const [rank,name] of fortuneSeed) {
+  const id="co_"+crypto.createHash("sha256").update("fortune500:2026:"+String(name).toLowerCase()).digest("hex").slice(0,20);
+  await pool.query(`INSERT INTO companies(id,canonical_name,country,priority,technical_employer,active,fortune_500,source_provenance,employer_score,updated_at)
+    VALUES($1,$2,'US',1,true,true,true,$3::jsonb,100,now())
+    ON CONFLICT(id) DO UPDATE SET fortune_500=true,priority=LEAST(companies.priority,1),employer_score=GREATEST(companies.employer_score,100),source_provenance=EXCLUDED.source_provenance,updated_at=now()`,
+    [id,name,JSON.stringify([{source:"Fortune 500",year:2026,rank,url:"https://fortune.com/ranking/fortune500/"}])]);
+  await pool.query(`INSERT INTO company_rankings(company_id,list_name,list_year,rank,source_url,metadata)
+    VALUES($1,'Fortune 500',2026,$2,'https://fortune.com/ranking/fortune500/','{}'::jsonb)
+    ON CONFLICT(company_id,list_name,list_year) DO UPDATE SET rank=EXCLUDED.rank,source_url=EXCLUDED.source_url`,[id,rank]);
+}
 
 const json = (res, status, body) => {
   res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", "access-control-allow-origin": "*" });
