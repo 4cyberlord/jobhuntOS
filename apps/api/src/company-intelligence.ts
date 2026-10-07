@@ -184,28 +184,20 @@ export async function companyIntelligenceDetail(id: string) {
 
 
 export async function companyIntelligenceDue(limit = 10) {
-  const view = await companyIntelligenceView() as { companies?: Array<Record<string, unknown>> };
-  const now = Date.now();
-  const dueMs = (priority: number) => priority <= 1 ? 30 * 60 * 1000 : priority === 2 ? 60 * 60 * 1000 : priority === 3 ? 3 * 60 * 60 * 1000 : priority === 4 ? 6 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000;
-  const companies = (view.companies ?? [])
-    .filter((c) => c.active !== false && c.active !== 0 && c.technical_employer !== false && c.technical_employer !== 0)
-    .filter((c) => {
-      const verified = Number(c.verified_source_count ?? 0);
-      const website = typeof c.website === "string" ? c.website : "";
-      const checked = c.last_checked_at ? new Date(String(c.last_checked_at)).getTime() : 0;
-      const priority = Number(c.priority ?? 3);
-      return !website || verified === 0 || !checked || now - checked >= dueMs(priority);
-    })
-    .sort((a,b) => Number(a.priority ?? 3) - Number(b.priority ?? 3) || String(a.canonical_name ?? "").localeCompare(String(b.canonical_name ?? "")))
-    .slice(0, Math.max(1, Math.min(limit, 25)));
-
-  const out = [];
-  for (const company of companies) {
+  const bounded=Math.max(1,Math.min(limit,25));
+  const lease=await fetch(`${base()}/v1/companies/lease`,{
+    method:"POST",
+    headers:{Authorization:`Bearer ${token()}`,"content-type":"application/json","user-agent":"job-hunt-os-api/1.0"},
+    body:JSON.stringify({limit:bounded,owner:"cloudflare-company-intelligence",lease_seconds:600}),
+  });
+  const leased=await readJson<{companies?:Array<Record<string,unknown>>}>(lease);
+  const out=[];
+  for(const company of leased.companies??[]){
     try {
-      const detail = await companyIntelligenceDetail(String(company.id)) as { career_sources?: Array<Record<string, unknown>> };
-      out.push({ company, career_sources: detail.career_sources ?? [], needs_enrichment: !company.website || Number(company.verified_source_count ?? 0) === 0 });
+      const detail=await companyIntelligenceDetail(String(company.id)) as {career_sources?:Array<Record<string,unknown>>};
+      out.push({company,career_sources:detail.career_sources??[],needs_enrichment:!company.website||Number(company.verified_source_count??0)===0});
     } catch {
-      out.push({ company, career_sources: [], needs_enrichment: true });
+      out.push({company,career_sources:[],needs_enrichment:true});
     }
   }
   return out;
