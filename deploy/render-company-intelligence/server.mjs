@@ -236,6 +236,22 @@ const server = http.createServer(async (req,res) => {
       return json(res,200,{ok:true,generated_at:new Date().toISOString(),summary:s.rows[0],companies:c.rows});
     }
     if (!(await authorized(req))) return json(res,401,{error:"unauthorized"});
+    if (req.method === "POST" && url.pathname === "/v1/companies/backfill-lease") {
+      const b=await readBody(req), limit=Math.max(1,Math.min(50,Number(b.limit||1))), owner=String(b.owner||"fortune500-backfill").slice(0,120), leaseSeconds=Math.max(60,Math.min(1800,Number(b.lease_seconds||900)));
+      const q=await pool.query(`WITH due AS (
+        SELECT c.id FROM companies c
+        WHERE c.active AND c.fortune_500 IS TRUE
+          AND (c.website IS NULL OR NOT EXISTS (
+            SELECT 1 FROM career_sources s WHERE s.company_id=c.id AND s.active AND s.verification_status='verified'
+          ))
+          AND (c.scan_lease_until IS NULL OR c.scan_lease_until<now())
+        ORDER BY c.priority,c.employer_score DESC,c.consecutive_failures,c.updated_at
+        FOR UPDATE SKIP LOCKED LIMIT $1
+      )
+      UPDATE companies c SET scan_lease_until=now()+($2 || ' seconds')::interval,scan_lease_owner=$3,updated_at=now()
+      FROM due WHERE c.id=due.id RETURNING c.*`,[limit,String(leaseSeconds),owner]);
+      return json(res,200,{ok:true,leased:q.rows.length,companies:q.rows});
+    }
     if (req.method === "POST" && url.pathname === "/v1/companies/lease") {
       const b=await readBody(req), limit=Math.max(1,Math.min(100,Number(b.limit||10))), owner=String(b.owner||"scanner").slice(0,120), leaseSeconds=Math.max(30,Math.min(1800,Number(b.lease_seconds||300)));
       const q=await pool.query(`WITH due AS (SELECT id FROM companies WHERE active AND (next_check_at IS NULL OR next_check_at<=now()) AND (scan_lease_until IS NULL OR scan_lease_until<now()) ORDER BY priority,employer_score DESC,next_check_at NULLS FIRST,updated_at FOR UPDATE SKIP LOCKED LIMIT $1)
