@@ -141,7 +141,7 @@ async function processCandidate(candidate: Candidate, env: Env) { const key = aw
     await lifecycle(env, { source: "cloudflare", phase: "handoff_complete", company, role, score, gate_id: body.queue_id }).catch(() => undefined); } catch (error) { const message = String(error instanceof Error ? error.message : error).slice(0, 1000), terminal = /unverified|too_short|too_large|company_or_title|railway_bridge_4(?:00|22)/.test(message); await env.GATE_JOURNAL.prepare("UPDATE gate_journal SET state=?, updated_at=unixepoch(), last_error=? WHERE url_hash=?").bind(terminal ? "failed" : "retrying", message, key).run(); if (!terminal) throw error; } }
 export default { async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) { ctx.waitUntil(controller.cron === "* * * * *"
     ? Promise.all([discover(env), importBridge(env), recoverRetryingCandidates(env)])
-    : controller.cron === "*/15 * * * *"
+    : controller.cron === "*/10 * * * *"
       ? runCompanyIntelligence(env)
       : discover(env)); }, async queue(batch: MessageBatch<unknown>, env: Env) {
   let researched = 0, handed_off = 0, failed = 0;
@@ -152,7 +152,7 @@ export default { async scheduled(controller: ScheduledController, env: Env, ctx:
   if (batch.messages.length > 0) {
     await lifecycle(env, { source: "cloudflare", phase: "research_finished", researched, valid: handed_off, rejected: 0, handed_off, failed }).catch(() => undefined);
   }
-}, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "* * * * *", company_intelligence_schedule: "*/15 * * * *", bridge_import_schedule: "* * * * *", provider_broker: "federated-v1", processor: "queues+d1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
+}, async fetch(req: Request, env: Env) { const path = new URL(req.url).pathname; if (req.method === "GET" && path === "/health") return json({ ok: true, service: "gate-cloudflare-discovery", lifecycle_version: "canonical-v1", discovery_schedule: "* * * * *", company_intelligence_schedule: "*/10 * * * *", bridge_import_schedule: "* * * * *", provider_broker: "federated-v1", processor: "queues+d1", scoring: "candidate-profile-v1" }); if (req.method === "GET" && path === "/status") return json({ ok: true, ...(JSON.parse(await env.GATE_STATUS.get("latest") || "{}")) });
 if (req.method === "GET" && path === "/company-intelligence") {
   return json({ ok: true, ...(await companyIntelligenceView(env)) });
 }
