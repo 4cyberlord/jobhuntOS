@@ -62,14 +62,14 @@ const TECH_TERMS = [
   "machine learning", "ai engineer", "mobile engineer", "ios engineer", "technology intern"
 ];
 
-const ATS_HOSTS = ["greenhouse.io","lever.co","myworkdayjobs.com","ashbyhq.com","smartrecruiters.com","icims.com"];
+const ATS_HOSTS = ["greenhouse.io","lever.co","myworkdayjobs.com","ashbyhq.com","smartrecruiters.com","icims.com","successfactors.com","oraclecloud.com"];
 const providerOf = (host: string) =>
   host.includes("greenhouse") ? "greenhouse" :
   host.includes("lever") ? "lever" :
   host.includes("workday") ? "workday" :
   host.includes("ashby") ? "ashby" :
   host.includes("smartrecruiters") ? "smartrecruiters" :
-  host.includes("icims") ? "icims" : "custom";
+  host.includes("icims") ? "icims" :\n  host.includes("successfactors") ? "successfactors" :\n  host.includes("oraclecloud") ? "oracle" : "custom";
 
 const canonicalUrl = (value: string) => {
   const u = new URL(value);
@@ -182,6 +182,36 @@ async function directSourceResults(env: IntelligenceEnv, sourceUrl: string, seas
     }
   }
   return rows;
+}
+
+async function probeCorporateCareers(website: string) {
+  const root=new URL(website);
+  const candidates=["/careers","/jobs","/careers/","/jobs/","/about/careers","/company/careers"];
+  const found: SearchResult[]=[];
+  for(const path of candidates){
+    try{
+      const target=new URL(path,root).toString();
+      const r=await fetch(target,{redirect:"follow",headers:{"user-agent":"GATE-Fortune500-Backfill/1.0","accept":"text/html"}});
+      if(!r.ok) continue;
+      const final=new URL(r.url);
+      const html=(await r.text()).slice(0,1_500_000);
+      const text=stripHtml(html).slice(0,10000);
+      if(/career|jobs|opportunit|join (our|the) team|search jobs/i.test(text)){
+        found.push({url:final.toString(),title:text.slice(0,240),content:text});
+        const linkRe=/<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi;
+        for(let m:RegExpExecArray|null;(m=linkRe.exec(html));){
+          try{
+            const u=new URL(m[1],final);
+            const host=u.hostname.toLowerCase();
+            const label=stripHtml(m[2]||"");
+            if(trustedAts(host)&&/job|career|opportunit|search|apply/i.test(label+" "+u.pathname)) found.push({url:u.toString(),title:label,content:text});
+          }catch{}
+        }
+        break;
+      }
+    }catch{}
+  }
+  return found;
 }
 
 async function researchCompany(env: IntelligenceEnv, item: DueCompany) {
