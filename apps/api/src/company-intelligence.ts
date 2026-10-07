@@ -184,7 +184,7 @@ export async function companyIntelligenceDetail(id: string) {
 
 
 export async function companyIntelligenceDue(limit = 10) {
-  const bounded=Math.max(1,Math.min(limit,50));
+  const bounded=Math.max(1,Math.min(limit,100));
   const lease=await fetch(`${base()}/v1/companies/lease`,{
     method:"POST",
     headers:{Authorization:`Bearer ${token()}`,"content-type":"application/json","user-agent":"job-hunt-os-api/1.0"},

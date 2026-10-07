@@ -298,7 +298,7 @@ async function queueMatches(env: IntelligenceEnv, item: DueCompany, sources: Arr
 }
 
 export async function scanCompanyIntelligence(env: IntelligenceEnv) {
-  const due = await api(env,"/v1/internal/company-intelligence/due?limit=50") as {companies?:DueCompany[]};
+  const due = await api(env,"/v1/internal/company-intelligence/due?limit=100") as {companies?:DueCompany[]};
   let checked=0,successful=0,discovered=0,queued=0,alreadyKnown=0,failed=0,sourcesAdded=0;
 
   for(const item of due.companies??[]){

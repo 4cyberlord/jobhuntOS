@@ -289,7 +289,7 @@ export async function buildApp() {
   });
 
   app.get("/v1/internal/company-intelligence/due", async (request, reply) => {
-    const q = z.object({ limit: z.coerce.number().int().min(1).max(25).optional() }).safeParse(request.query);
+    const q = z.object({ limit: z.coerce.number().int().min(1).max(100).optional() }).safeParse(request.query);
     if (!q.success) return reply.code(422).send({ error: "invalid_query" });
     try { return { ok: true, companies: await companyIntelligenceDue(q.data.limit ?? 10) }; }
     catch (e) { return reply.code(502).send({ error: e instanceof Error ? e.message : "company_intelligence_due_failed" }); }
