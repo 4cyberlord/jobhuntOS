@@ -235,6 +235,19 @@ const server = http.createServer(async (req,res) => {
       ]);
       return json(res,200,{ok:true,generated_at:new Date().toISOString(),summary:s.rows[0],companies:c.rows});
     }
+    if (req.method === "GET" && url.pathname === "/v1/fortune500/backfill/status") {
+      const q=await pool.query(`SELECT
+        count(*)::int total,
+        count(*) FILTER (WHERE website IS NOT NULL AND EXISTS (
+          SELECT 1 FROM career_sources s WHERE s.company_id=companies.id AND s.active AND s.verification_status='verified'
+        ))::int complete,
+        count(*) FILTER (WHERE website IS NULL OR NOT EXISTS (
+          SELECT 1 FROM career_sources s WHERE s.company_id=companies.id AND s.active AND s.verification_status='verified'
+        ))::int incomplete,
+        count(*) FILTER (WHERE scan_lease_until>now())::int leased
+        FROM companies WHERE active AND fortune_500 IS TRUE`);
+      return json(res,200,{ok:true,...q.rows[0],generated_at:new Date().toISOString()});
+    }
     if (!(await authorized(req))) return json(res,401,{error:"unauthorized"});
     if (req.method === "POST" && url.pathname === "/v1/companies/backfill-lease") {
       const b=await readBody(req), limit=Math.max(1,Math.min(50,Number(b.limit||1))), owner=String(b.owner||"fortune500-backfill").slice(0,120), leaseSeconds=Math.max(60,Math.min(1800,Number(b.lease_seconds||900)));
