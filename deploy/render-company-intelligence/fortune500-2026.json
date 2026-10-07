@@ -1,0 +1,2508 @@
+{
+  "year": 2026,
+  "source": "Fortune 500",
+  "source_url": "https://fortune.com/ranking/fortune500/",
+  "verified_via": "https://www.sheetsteps.com/data/fortune-500-companies-2026",
+  "rows": [
+    {
+      "rank": 1,
+      "name": "Amazon",
+      "profile": "https://fortune.com/company/amazon-com/"
+    },
+    {
+      "rank": 2,
+      "name": "Walmart",
+      "profile": "https://fortune.com/company/walmart/"
+    },
+    {
+      "rank": 3,
+      "name": "UnitedHealth Group",
+      "profile": "https://fortune.com/company/unitedhealth-group/"
+    },
+    {
+      "rank": 4,
+      "name": "Apple",
+      "profile": "https://fortune.com/company/apple/"
+    },
+    {
+      "rank": 5,
+      "name": "Alphabet",
+      "profile": "https://fortune.com/company/alphabet/"
+    },
+    {
+      "rank": 6,
+      "name": "CVS Health",
+      "profile": "https://fortune.com/company/cvs-health/"
+    },
+    {
+      "rank": 7,
+      "name": "Berkshire Hathaway",
+      "profile": "https://fortune.com/company/berkshire-hathaway/"
+    },
+    {
+      "rank": 8,
+      "name": "McKesson",
+      "profile": "https://fortune.com/company/mckesson/"
+    },
+    {
+      "rank": 9,
+      "name": "ExxonMobil Holdings",
+      "profile": "https://fortune.com/company/exxon-mobil/"
+    },
+    {
+      "rank": 10,
+      "name": "Cencora",
+      "profile": "https://fortune.com/company/amerisourcebergen/"
+    },
+    {
+      "rank": 11,
+      "name": "Microsoft",
+      "profile": "https://fortune.com/company/microsoft/"
+    },
+    {
+      "rank": 12,
+      "name": "JPMorgan Chase",
+      "profile": "https://fortune.com/company/jpmorgan-chase/"
+    },
+    {
+      "rank": 13,
+      "name": "Costco Wholesale",
+      "profile": "https://fortune.com/company/costco/"
+    },
+    {
+      "rank": 14,
+      "name": "Cigna Group",
+      "profile": "https://fortune.com/company/cigna/"
+    },
+    {
+      "rank": 15,
+      "name": "Cardinal Health",
+      "profile": "https://fortune.com/company/cardinal-health/"
+    },
+    {
+      "rank": 16,
+      "name": "Nvidia",
+      "profile": "https://fortune.com/company/nvidia/"
+    },
+    {
+      "rank": 17,
+      "name": "Meta Platforms",
+      "profile": "https://fortune.com/company/facebook/"
+    },
+    {
+      "rank": 18,
+      "name": "Elevance Health",
+      "profile": "https://fortune.com/company/elevance-health/"
+    },
+    {
+      "rank": 19,
+      "name": "Centene",
+      "profile": "https://fortune.com/company/centene/"
+    },
+    {
+      "rank": 20,
+      "name": "Bank of America",
+      "profile": "https://fortune.com/company/bank-of-america-corp/"
+    },
+    {
+      "rank": 21,
+      "name": "Chevron",
+      "profile": "https://fortune.com/company/chevron/"
+    },
+    {
+      "rank": 22,
+      "name": "Ford Motor",
+      "profile": "https://fortune.com/company/ford-motor/"
+    },
+    {
+      "rank": 23,
+      "name": "General Motors",
+      "profile": "https://fortune.com/company/general-motors/"
+    },
+    {
+      "rank": 24,
+      "name": "Citigroup",
+      "profile": "https://fortune.com/company/citigroup/"
+    },
+    {
+      "rank": 25,
+      "name": "Home Depot",
+      "profile": "https://fortune.com/company/home-depot/"
+    },
+    {
+      "rank": 26,
+      "name": "Fannie Mae",
+      "profile": "https://fortune.com/company/fannie-mae/"
+    },
+    {
+      "rank": 27,
+      "name": "Kroger",
+      "profile": "https://fortune.com/company/kroger/"
+    },
+    {
+      "rank": 28,
+      "name": "Verizon Communications",
+      "profile": "https://fortune.com/company/verizon/"
+    },
+    {
+      "rank": 29,
+      "name": "Phillips 66",
+      "profile": "https://fortune.com/company/phillips/"
+    },
+    {
+      "rank": 30,
+      "name": "Marathon Petroleum",
+      "profile": "https://fortune.com/company/marathon-petroleum/"
+    },
+    {
+      "rank": 31,
+      "name": "StoneX Group",
+      "profile": "https://fortune.com/company/stonex-group/"
+    },
+    {
+      "rank": 32,
+      "name": "State Farm Insurance",
+      "profile": "https://fortune.com/company/state-farm-insurance-cos/"
+    },
+    {
+      "rank": 33,
+      "name": "Freddie Mac",
+      "profile": "https://fortune.com/company/freddie-mac/"
+    },
+    {
+      "rank": 34,
+      "name": "Humana",
+      "profile": "https://fortune.com/company/humana/"
+    },
+    {
+      "rank": 35,
+      "name": "AT&T",
+      "profile": "https://fortune.com/company/att/"
+    },
+    {
+      "rank": 36,
+      "name": "Goldman Sachs Group",
+      "profile": "https://fortune.com/company/goldman-sachs-group/"
+    },
+    {
+      "rank": 37,
+      "name": "Comcast",
+      "profile": "https://fortune.com/company/comcast/"
+    },
+    {
+      "rank": 38,
+      "name": "Wells Fargo",
+      "profile": "https://fortune.com/company/wells-fargo/"
+    },
+    {
+      "rank": 39,
+      "name": "Morgan Stanley",
+      "profile": "https://fortune.com/company/morgan-stanley/"
+    },
+    {
+      "rank": 40,
+      "name": "Valero Energy",
+      "profile": "https://fortune.com/company/valero-energy/"
+    },
+    {
+      "rank": 41,
+      "name": "Dell Technologies",
+      "profile": "https://fortune.com/company/dell-technologies/"
+    },
+    {
+      "rank": 42,
+      "name": "Target",
+      "profile": "https://fortune.com/company/target/"
+    },
+    {
+      "rank": 43,
+      "name": "Tesla",
+      "profile": "https://fortune.com/company/tesla/"
+    },
+    {
+      "rank": 44,
+      "name": "Walt Disney",
+      "profile": "https://fortune.com/company/disney/"
+    },
+    {
+      "rank": 45,
+      "name": "Johnson & Johnson",
+      "profile": "https://fortune.com/company/johnson-johnson/"
+    },
+    {
+      "rank": 46,
+      "name": "PepsiCo",
+      "profile": "https://fortune.com/company/pepsico/"
+    },
+    {
+      "rank": 47,
+      "name": "Boeing",
+      "profile": "https://fortune.com/company/boeing/"
+    },
+    {
+      "rank": 48,
+      "name": "United Parcel Service",
+      "profile": "https://fortune.com/company/ups/"
+    },
+    {
+      "rank": 49,
+      "name": "RTX",
+      "profile": "https://fortune.com/company/raytheon-technologies/"
+    },
+    {
+      "rank": 50,
+      "name": "FedEx",
+      "profile": "https://fortune.com/company/fedex/"
+    },
+    {
+      "rank": 51,
+      "name": "Progressive",
+      "profile": "https://fortune.com/company/progressive/"
+    },
+    {
+      "rank": 52,
+      "name": "Lowe's",
+      "profile": "https://fortune.com/company/lowes/"
+    },
+    {
+      "rank": 53,
+      "name": "Energy Transfer",
+      "profile": "https://fortune.com/company/energy-transfer-equity/"
+    },
+    {
+      "rank": 54,
+      "name": "Procter & Gamble",
+      "profile": "https://fortune.com/company/procter-gamble/"
+    },
+    {
+      "rank": 55,
+      "name": "Sysco",
+      "profile": "https://fortune.com/company/sysco/"
+    },
+    {
+      "rank": 56,
+      "name": "American Express",
+      "profile": "https://fortune.com/company/american-express/"
+    },
+    {
+      "rank": 57,
+      "name": "Albertsons",
+      "profile": "https://fortune.com/company/albertsons-cos/"
+    },
+    {
+      "rank": 58,
+      "name": "Archer Daniels Midland",
+      "profile": "https://fortune.com/company/archer-daniels-midland/"
+    },
+    {
+      "rank": 59,
+      "name": "MetLife",
+      "profile": "https://fortune.com/company/metlife/"
+    },
+    {
+      "rank": 60,
+      "name": "HCA Healthcare",
+      "profile": "https://fortune.com/company/hca-holdings/"
+    },
+    {
+      "rank": 61,
+      "name": "Lockheed Martin",
+      "profile": "https://fortune.com/company/lockheed-martin/"
+    },
+    {
+      "rank": 62,
+      "name": "New York Life Insurance",
+      "profile": "https://fortune.com/company/new-york-life-insurance/"
+    },
+    {
+      "rank": 63,
+      "name": "Capital One Financial",
+      "profile": "https://fortune.com/company/capital-one-financial/"
+    },
+    {
+      "rank": 64,
+      "name": "Allstate",
+      "profile": "https://fortune.com/company/allstate/"
+    },
+    {
+      "rank": 65,
+      "name": "Caterpillar",
+      "profile": "https://fortune.com/company/caterpillar/"
+    },
+    {
+      "rank": 66,
+      "name": "International Business Machines",
+      "profile": "https://fortune.com/company/ibm/"
+    },
+    {
+      "rank": 67,
+      "name": "Eli Lilly",
+      "profile": "https://fortune.com/company/eli-lilly/"
+    },
+    {
+      "rank": 68,
+      "name": "Merck",
+      "profile": "https://fortune.com/company/merck/"
+    },
+    {
+      "rank": 69,
+      "name": "Nationwide",
+      "profile": "https://fortune.com/company/nationwide/"
+    },
+    {
+      "rank": 70,
+      "name": "Broadcom",
+      "profile": "https://fortune.com/company/broadcom/"
+    },
+    {
+      "rank": 71,
+      "name": "Delta Air Lines",
+      "profile": "https://fortune.com/company/delta-air-lines/"
+    },
+    {
+      "rank": 72,
+      "name": "Publix Super Markets",
+      "profile": "https://fortune.com/company/publix-super-markets/"
+    },
+    {
+      "rank": 73,
+      "name": "Pfizer",
+      "profile": "https://fortune.com/company/pfizer/"
+    },
+    {
+      "rank": 74,
+      "name": "TD Synnex",
+      "profile": "https://fortune.com/company/synnex/"
+    },
+    {
+      "rank": 75,
+      "name": "ConocoPhillips",
+      "profile": "https://fortune.com/company/conocophillips/"
+    },
+    {
+      "rank": 76,
+      "name": "Galaxy Digital",
+      "profile": "https://fortune.com/company/galaxy-digital/"
+    },
+    {
+      "rank": 77,
+      "name": "AbbVie",
+      "profile": "https://fortune.com/company/abbvie/"
+    },
+    {
+      "rank": 78,
+      "name": "Prudential Financial",
+      "profile": "https://fortune.com/company/prudential-financial/"
+    },
+    {
+      "rank": 79,
+      "name": "TJX",
+      "profile": "https://fortune.com/company/tjx/"
+    },
+    {
+      "rank": 80,
+      "name": "Performance Food Group",
+      "profile": "https://fortune.com/company/performance-food-group/"
+    },
+    {
+      "rank": 81,
+      "name": "United Airlines Holdings",
+      "profile": "https://fortune.com/company/united-continental-holdings/"
+    },
+    {
+      "rank": 82,
+      "name": "Oracle",
+      "profile": "https://fortune.com/company/oracle/"
+    },
+    {
+      "rank": 83,
+      "name": "Cisco Systems",
+      "profile": "https://fortune.com/company/cisco-systems-inc/"
+    },
+    {
+      "rank": 84,
+      "name": "HP",
+      "profile": "https://fortune.com/company/hp/"
+    },
+    {
+      "rank": 85,
+      "name": "Charter Communications",
+      "profile": "https://fortune.com/company/charter-communications/"
+    },
+    {
+      "rank": 86,
+      "name": "American Airlines Group",
+      "profile": "https://fortune.com/company/american-airlines-group/"
+    },
+    {
+      "rank": 87,
+      "name": "Tyson Foods",
+      "profile": "https://fortune.com/company/tyson-foods/"
+    },
+    {
+      "rank": 88,
+      "name": "Intel",
+      "profile": "https://fortune.com/company/intel/"
+    },
+    {
+      "rank": 89,
+      "name": "Enterprise Products Partners",
+      "profile": "https://fortune.com/company/enterprise-products-partners/"
+    },
+    {
+      "rank": 90,
+      "name": "Ingram Micro Holding",
+      "profile": "https://fortune.com/company/ingram-micro/"
+    },
+    {
+      "rank": 91,
+      "name": "General Dynamics",
+      "profile": "https://fortune.com/company/general-dynamics/"
+    },
+    {
+      "rank": 92,
+      "name": "Uber Technologies",
+      "profile": "https://fortune.com/company/uber-technologies/"
+    },
+    {
+      "rank": 93,
+      "name": "United Services Automobile Assn.",
+      "profile": "https://fortune.com/company/usaa/"
+    },
+    {
+      "rank": 94,
+      "name": "TIAA",
+      "profile": "https://fortune.com/company/tiaa/"
+    },
+    {
+      "rank": 95,
+      "name": "Liberty Mutual Insurance Group",
+      "profile": "https://fortune.com/company/liberty-mutual-insurance-group/"
+    },
+    {
+      "rank": 96,
+      "name": "Travelers",
+      "profile": "https://fortune.com/company/travelers-cos/"
+    },
+    {
+      "rank": 97,
+      "name": "Bristol-Myers Squibb",
+      "profile": "https://fortune.com/company/bristol-myers-squibb/"
+    },
+    {
+      "rank": 98,
+      "name": "Coca-Cola",
+      "profile": "https://fortune.com/company/coca-cola/"
+    },
+    {
+      "rank": 99,
+      "name": "Nike",
+      "profile": "https://fortune.com/company/nike/"
+    },
+    {
+      "rank": 100,
+      "name": "Massachusetts Mutual Life Insurance",
+      "profile": "https://fortune.com/company/massachusetts-mutual-life-insurance/"
+    },
+    {
+      "rank": 101,
+      "name": "GE Aerospace",
+      "profile": "https://fortune.com/company/general-electric/"
+    },
+    {
+      "rank": 102,
+      "name": "Deere",
+      "profile": "https://fortune.com/company/deere/"
+    },
+    {
+      "rank": 103,
+      "name": "Plains GP Holdings",
+      "profile": "https://fortune.com/company/plains-gp-holdings/"
+    },
+    {
+      "rank": 104,
+      "name": "Molina Healthcare",
+      "profile": "https://fortune.com/company/molina-healthcare/"
+    },
+    {
+      "rank": 105,
+      "name": "Netflix",
+      "profile": "https://fortune.com/company/netflix/"
+    },
+    {
+      "rank": 106,
+      "name": "Thermo Fisher Scientific",
+      "profile": "https://fortune.com/company/thermo-fisher-scientific/"
+    },
+    {
+      "rank": 107,
+      "name": "Abbott Laboratories",
+      "profile": "https://fortune.com/company/abbott-laboratories/"
+    },
+    {
+      "rank": 108,
+      "name": "Qualcomm",
+      "profile": "https://fortune.com/company/qualcomm/"
+    },
+    {
+      "rank": 109,
+      "name": "Northwestern Mutual",
+      "profile": "https://fortune.com/company/northwestern-mutual/"
+    },
+    {
+      "rank": 110,
+      "name": "U.S. Bancorp",
+      "profile": "https://fortune.com/company/u-s-bancorp/"
+    },
+    {
+      "rank": 111,
+      "name": "Dollar General",
+      "profile": "https://fortune.com/company/dollar-general/"
+    },
+    {
+      "rank": 112,
+      "name": "Northrop Grumman",
+      "profile": "https://fortune.com/company/northrop-grumman/"
+    },
+    {
+      "rank": 113,
+      "name": "Best Buy",
+      "profile": "https://fortune.com/company/best-buy/"
+    },
+    {
+      "rank": 114,
+      "name": "Salesforce",
+      "profile": "https://fortune.com/company/salesforce-com/"
+    },
+    {
+      "rank": 115,
+      "name": "Bank of New York (BNY)",
+      "profile": "https://fortune.com/company/bank-of-new-york-mellon-corp/"
+    },
+    {
+      "rank": 116,
+      "name": "Honeywell Technologies",
+      "profile": "https://fortune.com/company/honeywell-international/"
+    },
+    {
+      "rank": 117,
+      "name": "Philip Morris International",
+      "profile": "https://fortune.com/company/philip-morris-international/"
+    },
+    {
+      "rank": 118,
+      "name": "CBRE Group",
+      "profile": "https://fortune.com/company/cbre-group/"
+    },
+    {
+      "rank": 119,
+      "name": "Visa",
+      "profile": "https://fortune.com/company/visa/"
+    },
+    {
+      "rank": 120,
+      "name": "Dow",
+      "profile": "https://fortune.com/company/dow/"
+    },
+    {
+      "rank": 121,
+      "name": "US Foods Holding",
+      "profile": "https://fortune.com/company/us-foods-holding/"
+    },
+    {
+      "rank": 122,
+      "name": "Mondelēz International",
+      "profile": "https://fortune.com/company/mondelez-international/"
+    },
+    {
+      "rank": 123,
+      "name": "Lithia Motors",
+      "profile": "https://fortune.com/company/lithia-motors/"
+    },
+    {
+      "rank": 124,
+      "name": "GE Vernova",
+      "profile": "https://fortune.com/company/gevernova/"
+    },
+    {
+      "rank": 125,
+      "name": "Micron Technology",
+      "profile": "https://fortune.com/company/micron-technology/"
+    },
+    {
+      "rank": 126,
+      "name": "Warner Bros. Discovery",
+      "profile": "https://fortune.com/company/discovery/"
+    },
+    {
+      "rank": 127,
+      "name": "Starbucks",
+      "profile": "https://fortune.com/company/starbucks/"
+    },
+    {
+      "rank": 128,
+      "name": "World Kinect",
+      "profile": "https://fortune.com/company/world-fuel-services/"
+    },
+    {
+      "rank": 129,
+      "name": "Amgen",
+      "profile": "https://fortune.com/company/amgen/"
+    },
+    {
+      "rank": 130,
+      "name": "CHS",
+      "profile": "https://fortune.com/company/chs/"
+    },
+    {
+      "rank": 131,
+      "name": "Advanced Micro Devices",
+      "profile": "https://fortune.com/company/advanced-micro-devices/"
+    },
+    {
+      "rank": 132,
+      "name": "Coupang",
+      "profile": "https://fortune.com/company/coupang/"
+    },
+    {
+      "rank": 133,
+      "name": "Hewlett Packard Enterprise",
+      "profile": "https://fortune.com/company/hewlett-packard-enterprise/"
+    },
+    {
+      "rank": 134,
+      "name": "D.R. Horton",
+      "profile": "https://fortune.com/company/d-r-horton/"
+    },
+    {
+      "rank": 135,
+      "name": "Lennar",
+      "profile": "https://fortune.com/company/lennar/"
+    },
+    {
+      "rank": 136,
+      "name": "PNC Financial Services Group",
+      "profile": "https://fortune.com/company/pnc-financial-services/"
+    },
+    {
+      "rank": 137,
+      "name": "Cummins",
+      "profile": "https://fortune.com/company/cummins/"
+    },
+    {
+      "rank": 138,
+      "name": "Oneok",
+      "profile": "https://fortune.com/company/oneok/"
+    },
+    {
+      "rank": 139,
+      "name": "PayPal Holdings",
+      "profile": "https://fortune.com/company/paypal-holdings/"
+    },
+    {
+      "rank": 140,
+      "name": "GuideWell Mutual Holding",
+      "profile": "https://fortune.com/company/guidewell-mutual-holding/"
+    },
+    {
+      "rank": 141,
+      "name": "Mastercard",
+      "profile": "https://fortune.com/company/mastercard/"
+    },
+    {
+      "rank": 142,
+      "name": "Nucor",
+      "profile": "https://fortune.com/company/nucor/"
+    },
+    {
+      "rank": 143,
+      "name": "Apollo Global Management",
+      "profile": "https://fortune.com/company/apollo-global-management/"
+    },
+    {
+      "rank": 144,
+      "name": "Penske Automotive Group",
+      "profile": "https://fortune.com/company/penske-automotive-group/"
+    },
+    {
+      "rank": 145,
+      "name": "Duke Energy",
+      "profile": "https://fortune.com/company/duke-energy/"
+    },
+    {
+      "rank": 146,
+      "name": "United Natural Foods",
+      "profile": "https://fortune.com/company/united-natural-foods/"
+    },
+    {
+      "rank": 147,
+      "name": "Ferguson Enterprises",
+      "profile": "https://fortune.com/company/ferguson/"
+    },
+    {
+      "rank": 148,
+      "name": "Arrow Electronics",
+      "profile": "https://fortune.com/company/arrow-electronics/"
+    },
+    {
+      "rank": 149,
+      "name": "NRG Energy",
+      "profile": "https://fortune.com/company/nrg-energy/"
+    },
+    {
+      "rank": 150,
+      "name": "Truist Financial",
+      "profile": "https://fortune.com/company/bbt-corp/"
+    },
+    {
+      "rank": 151,
+      "name": "Jabil",
+      "profile": "https://fortune.com/company/jabil-circuit/"
+    },
+    {
+      "rank": 152,
+      "name": "Southern",
+      "profile": "https://fortune.com/company/southern/"
+    },
+    {
+      "rank": 153,
+      "name": "Gilead Sciences",
+      "profile": "https://fortune.com/company/gilead-sciences/"
+    },
+    {
+      "rank": 154,
+      "name": "PBF Energy",
+      "profile": "https://fortune.com/company/pbf-energy/"
+    },
+    {
+      "rank": 155,
+      "name": "Paramount Skydance",
+      "profile": "https://fortune.com/company/cbs/"
+    },
+    {
+      "rank": 156,
+      "name": "KKR",
+      "profile": "https://fortune.com/company/kkr/"
+    },
+    {
+      "rank": 157,
+      "name": "Quanta Services",
+      "profile": "https://fortune.com/company/quanta-services/"
+    },
+    {
+      "rank": 158,
+      "name": "Paccar",
+      "profile": "https://fortune.com/company/paccar/"
+    },
+    {
+      "rank": 159,
+      "name": "Medline",
+      "profile": "https://fortune.com/company/medline/"
+    },
+    {
+      "rank": 160,
+      "name": "Applied Materials",
+      "profile": "https://fortune.com/company/applied-materials/"
+    },
+    {
+      "rank": 161,
+      "name": "Hartford Insurance Group",
+      "profile": "https://fortune.com/company/hartford-financial-services/"
+    },
+    {
+      "rank": 162,
+      "name": "CarMax",
+      "profile": "https://fortune.com/company/carmax/"
+    },
+    {
+      "rank": 163,
+      "name": "Southwest Airlines",
+      "profile": "https://fortune.com/company/southwest-airlines/"
+    },
+    {
+      "rank": 164,
+      "name": "Baker Hughes",
+      "profile": "https://fortune.com/company/baker-hughes/"
+    },
+    {
+      "rank": 165,
+      "name": "Charles Schwab",
+      "profile": "https://fortune.com/company/charles-schwab/"
+    },
+    {
+      "rank": 166,
+      "name": "AutoNation",
+      "profile": "https://fortune.com/company/auto-nation/"
+    },
+    {
+      "rank": 167,
+      "name": "NextEra Energy",
+      "profile": "https://fortune.com/company/nextera-energy/"
+    },
+    {
+      "rank": 168,
+      "name": "Marsh & McLennan",
+      "profile": "https://fortune.com/company/marsh-mclennan/"
+    },
+    {
+      "rank": 169,
+      "name": "Booking Holdings",
+      "profile": "https://fortune.com/company/booking-holdings/"
+    },
+    {
+      "rank": 170,
+      "name": "McDonald's",
+      "profile": "https://fortune.com/company/mcdonalds/"
+    },
+    {
+      "rank": 171,
+      "name": "HF Sinclair",
+      "profile": "https://fortune.com/company/hollyfrontier/"
+    },
+    {
+      "rank": 172,
+      "name": "AIG",
+      "profile": "https://fortune.com/company/aig/"
+    },
+    {
+      "rank": 173,
+      "name": "Occidental Petroleum",
+      "profile": "https://fortune.com/company/occidental-petroleum/"
+    },
+    {
+      "rank": 174,
+      "name": "Marriott International",
+      "profile": "https://fortune.com/company/marriott-international/"
+    },
+    {
+      "rank": 175,
+      "name": "Jones Lang LaSalle",
+      "profile": "https://fortune.com/company/jones-lang-lasalle/"
+    },
+    {
+      "rank": 176,
+      "name": "International Paper",
+      "profile": "https://fortune.com/company/international-paper/"
+    },
+    {
+      "rank": 177,
+      "name": "Freeport-McMoRan",
+      "profile": "https://fortune.com/company/freeport-mcmoran/"
+    },
+    {
+      "rank": 178,
+      "name": "Constellation Energy",
+      "profile": "https://fortune.com/company/constellation-energy/"
+    },
+    {
+      "rank": 179,
+      "name": "Waste Management",
+      "profile": "https://fortune.com/company/waste-management/"
+    },
+    {
+      "rank": 180,
+      "name": "Live Nation Entertainment",
+      "profile": "https://fortune.com/company/live-nation-entertainment/"
+    },
+    {
+      "rank": 181,
+      "name": "Stryker",
+      "profile": "https://fortune.com/company/stryker/"
+    },
+    {
+      "rank": 182,
+      "name": "Dollar Tree",
+      "profile": "https://fortune.com/company/dollar-tree/"
+    },
+    {
+      "rank": 183,
+      "name": "3M",
+      "profile": "https://fortune.com/company/3m/"
+    },
+    {
+      "rank": 184,
+      "name": "Kraft Heinz",
+      "profile": "https://fortune.com/company/kraft-heinz/"
+    },
+    {
+      "rank": 185,
+      "name": "PG&E",
+      "profile": "https://fortune.com/company/pge-corp/"
+    },
+    {
+      "rank": 186,
+      "name": "Danaher",
+      "profile": "https://fortune.com/company/danaher/"
+    },
+    {
+      "rank": 187,
+      "name": "Union Pacific",
+      "profile": "https://fortune.com/company/union-pacific/"
+    },
+    {
+      "rank": 188,
+      "name": "Genuine Parts",
+      "profile": "https://fortune.com/company/genuine-parts/"
+    },
+    {
+      "rank": 189,
+      "name": "Exelon",
+      "profile": "https://fortune.com/company/exelon/"
+    },
+    {
+      "rank": 190,
+      "name": "BlackRock",
+      "profile": "https://fortune.com/company/blackrock/"
+    },
+    {
+      "rank": 191,
+      "name": "Block",
+      "profile": "https://fortune.com/company/square/"
+    },
+    {
+      "rank": 192,
+      "name": "Adobe",
+      "profile": "https://fortune.com/company/adobe-systems/"
+    },
+    {
+      "rank": 193,
+      "name": "Reinsurance Group of America",
+      "profile": "https://fortune.com/company/reinsurance-group-of-america/"
+    },
+    {
+      "rank": 194,
+      "name": "Sherwin-Williams",
+      "profile": "https://fortune.com/company/sherwin-williams/"
+    },
+    {
+      "rank": 195,
+      "name": "WESCO International",
+      "profile": "https://fortune.com/company/wesco-international/"
+    },
+    {
+      "rank": 196,
+      "name": "Lear",
+      "profile": "https://fortune.com/company/lear/"
+    },
+    {
+      "rank": 197,
+      "name": "Synchrony",
+      "profile": "https://fortune.com/company/synchrony-financial/"
+    },
+    {
+      "rank": 198,
+      "name": "Amphenol",
+      "profile": "https://fortune.com/company/amphenol/"
+    },
+    {
+      "rank": 199,
+      "name": "Ross Stores",
+      "profile": "https://fortune.com/company/ross-stores/"
+    },
+    {
+      "rank": 200,
+      "name": "Newmont",
+      "profile": "https://fortune.com/company/newmont-mining/"
+    },
+    {
+      "rank": 201,
+      "name": "EOG Resources",
+      "profile": "https://fortune.com/company/eog-resources/"
+    },
+    {
+      "rank": 202,
+      "name": "State Street",
+      "profile": "https://fortune.com/company/state-street-corp/"
+    },
+    {
+      "rank": 203,
+      "name": "Macy's",
+      "profile": "https://fortune.com/company/macys/"
+    },
+    {
+      "rank": 204,
+      "name": "Group 1 Automotive",
+      "profile": "https://fortune.com/company/group-1-automotive/"
+    },
+    {
+      "rank": 205,
+      "name": "CDW",
+      "profile": "https://fortune.com/company/cdw/"
+    },
+    {
+      "rank": 206,
+      "name": "Avnet",
+      "profile": "https://fortune.com/company/avnet/"
+    },
+    {
+      "rank": 207,
+      "name": "Halliburton",
+      "profile": "https://fortune.com/company/halliburton/"
+    },
+    {
+      "rank": 208,
+      "name": "Super Micro Computer",
+      "profile": "https://fortune.com/company/super-micro-computer/"
+    },
+    {
+      "rank": 209,
+      "name": "American Electric Power",
+      "profile": "https://fortune.com/company/american-electric-power/"
+    },
+    {
+      "rank": 210,
+      "name": "L3Harris Technologies",
+      "profile": "https://fortune.com/company/harris/"
+    },
+    {
+      "rank": 211,
+      "name": "Becton Dickinson",
+      "profile": "https://fortune.com/company/becton-dickinson/"
+    },
+    {
+      "rank": 212,
+      "name": "Carrier Global",
+      "profile": "https://fortune.com/company/carrier-global/"
+    },
+    {
+      "rank": 213,
+      "name": "BJ's Wholesale Club",
+      "profile": "https://fortune.com/company/bjs-wholesale-club/"
+    },
+    {
+      "rank": 214,
+      "name": "Tenet Healthcare",
+      "profile": "https://fortune.com/company/tenet-healthcare/"
+    },
+    {
+      "rank": 215,
+      "name": "Fiserv",
+      "profile": "https://fortune.com/company/fiserv/"
+    },
+    {
+      "rank": 216,
+      "name": "Cognizant Technology Solutions",
+      "profile": "https://fortune.com/company/cognizant-technology-solutions/"
+    },
+    {
+      "rank": 217,
+      "name": "GE HealthCare Technologies",
+      "profile": "https://fortune.com/company/ge-healthcare-technologies/"
+    },
+    {
+      "rank": 218,
+      "name": "Automatic Data Processing",
+      "profile": "https://fortune.com/company/adp/"
+    },
+    {
+      "rank": 219,
+      "name": "Colgate-Palmolive",
+      "profile": "https://fortune.com/company/colgate-palmolive/"
+    },
+    {
+      "rank": 220,
+      "name": "Carvana",
+      "profile": "https://fortune.com/company/carvana/"
+    },
+    {
+      "rank": 221,
+      "name": "Altria Group",
+      "profile": "https://fortune.com/company/altria-group/"
+    },
+    {
+      "rank": 222,
+      "name": "Boston Scientific",
+      "profile": "https://fortune.com/company/boston-scientific/"
+    },
+    {
+      "rank": 223,
+      "name": "Cheniere Energy",
+      "profile": "https://fortune.com/company/cheniere-energy/"
+    },
+    {
+      "rank": 224,
+      "name": "Parker-Hannifin",
+      "profile": "https://fortune.com/company/parker-hannifin/"
+    },
+    {
+      "rank": 225,
+      "name": "Kimberly-Clark",
+      "profile": "https://fortune.com/company/kimberly-clark/"
+    },
+    {
+      "rank": 226,
+      "name": "American Family Insurance Group",
+      "profile": "https://fortune.com/company/american-family-insurance-group/"
+    },
+    {
+      "rank": 227,
+      "name": "General Mills",
+      "profile": "https://fortune.com/company/general-mills/"
+    },
+    {
+      "rank": 228,
+      "name": "Edison International",
+      "profile": "https://fortune.com/company/edison-international/"
+    },
+    {
+      "rank": 229,
+      "name": "AutoZone",
+      "profile": "https://fortune.com/company/autozone/"
+    },
+    {
+      "rank": 230,
+      "name": "Ameriprise Financial",
+      "profile": "https://fortune.com/company/ameriprise-financial/"
+    },
+    {
+      "rank": 231,
+      "name": "Intuit",
+      "profile": "https://fortune.com/company/intuit/"
+    },
+    {
+      "rank": 232,
+      "name": "Guardian Life Ins. Co. of America",
+      "profile": "https://fortune.com/company/guardian-life-ins-co-of-america/"
+    },
+    {
+      "rank": 233,
+      "name": "Cleveland-Cliffs",
+      "profile": "https://fortune.com/company/cleveland-cliffs/"
+    },
+    {
+      "rank": 234,
+      "name": "Global Partners",
+      "profile": "https://fortune.com/company/global-partners/"
+    },
+    {
+      "rank": 235,
+      "name": "Aramark",
+      "profile": "https://fortune.com/company/aramark/"
+    },
+    {
+      "rank": 236,
+      "name": "Corebridge Financial",
+      "profile": "https://fortune.com/company/corebridge-financial/"
+    },
+    {
+      "rank": 237,
+      "name": "Loews",
+      "profile": "https://fortune.com/company/loews/"
+    },
+    {
+      "rank": 238,
+      "name": "Lam Research",
+      "profile": "https://fortune.com/company/lam-research/"
+    },
+    {
+      "rank": 239,
+      "name": "Goodyear Tire & Rubber",
+      "profile": "https://fortune.com/company/goodyear-tire-rubber/"
+    },
+    {
+      "rank": 240,
+      "name": "Pacific Life",
+      "profile": "https://fortune.com/company/pacific-life/"
+    },
+    {
+      "rank": 241,
+      "name": "Auto-Owners Insurance",
+      "profile": "https://fortune.com/company/auto-owners-insurance/"
+    },
+    {
+      "rank": 242,
+      "name": "Peter Kiewit Sons'",
+      "profile": "https://fortune.com/company/peter-kiewit-sons/"
+    },
+    {
+      "rank": 243,
+      "name": "Lincoln National",
+      "profile": "https://fortune.com/company/lincoln-national/"
+    },
+    {
+      "rank": 244,
+      "name": "Steel Dynamics",
+      "profile": "https://fortune.com/company/steel-dynamics/"
+    },
+    {
+      "rank": 245,
+      "name": "Emerson Electric",
+      "profile": "https://fortune.com/company/emerson-electric/"
+    },
+    {
+      "rank": 246,
+      "name": "Asbury Automotive Group",
+      "profile": "https://fortune.com/company/asbury-automotive-group/"
+    },
+    {
+      "rank": 247,
+      "name": "ManpowerGroup",
+      "profile": "https://fortune.com/company/manpowergroup/"
+    },
+    {
+      "rank": 248,
+      "name": "W.W. Grainger",
+      "profile": "https://fortune.com/company/w-w-grainger/"
+    },
+    {
+      "rank": 249,
+      "name": "Jones Financial (Edward Jones)",
+      "profile": "https://fortune.com/company/edward-jones/"
+    },
+    {
+      "rank": 250,
+      "name": "O'Reilly Automotive",
+      "profile": "https://fortune.com/company/oreilly-automotive/"
+    },
+    {
+      "rank": 251,
+      "name": "Vistra",
+      "profile": "https://fortune.com/company/vistra-energy/"
+    },
+    {
+      "rank": 252,
+      "name": "Texas Instruments",
+      "profile": "https://fortune.com/company/texas-instruments/"
+    },
+    {
+      "rank": 253,
+      "name": "MGM Resorts International",
+      "profile": "https://fortune.com/company/mgm-resorts-international/"
+    },
+    {
+      "rank": 254,
+      "name": "Corteva",
+      "profile": "https://fortune.com/company/corteva/"
+    },
+    {
+      "rank": 255,
+      "name": "Universal Health Services",
+      "profile": "https://fortune.com/company/universal-health-services/"
+    },
+    {
+      "rank": 256,
+      "name": "PulteGroup",
+      "profile": "https://fortune.com/company/pultegroup/"
+    },
+    {
+      "rank": 257,
+      "name": "Omnicom Group",
+      "profile": "https://fortune.com/company/omnicom-group/"
+    },
+    {
+      "rank": 258,
+      "name": "Dick's Sporting Goods",
+      "profile": "https://fortune.com/company/dicks-sporting-goods/"
+    },
+    {
+      "rank": 259,
+      "name": "Devon Energy",
+      "profile": "https://fortune.com/company/devon-energy/"
+    },
+    {
+      "rank": 260,
+      "name": "Leidos Holdings",
+      "profile": "https://fortune.com/company/leidos-holdings/"
+    },
+    {
+      "rank": 261,
+      "name": "Aflac",
+      "profile": "https://fortune.com/company/aflac/"
+    },
+    {
+      "rank": 262,
+      "name": "Targa Resources",
+      "profile": "https://fortune.com/company/targa-resources/"
+    },
+    {
+      "rank": 263,
+      "name": "Murphy USA",
+      "profile": "https://fortune.com/company/murphy-usa/"
+    },
+    {
+      "rank": 264,
+      "name": "LPL Financial Holdings",
+      "profile": "https://fortune.com/company/lpl-financial-holdings/"
+    },
+    {
+      "rank": 265,
+      "name": "EMCOR Group",
+      "profile": "https://fortune.com/company/emcor-group/"
+    },
+    {
+      "rank": 266,
+      "name": "Kinder Morgan",
+      "profile": "https://fortune.com/company/kinder-morgan/"
+    },
+    {
+      "rank": 267,
+      "name": "Consolidated Edison",
+      "profile": "https://fortune.com/company/consolidated-edison/"
+    },
+    {
+      "rank": 268,
+      "name": "Keurig Dr Pepper",
+      "profile": "https://fortune.com/company/dr-pepper-snapple-group/"
+    },
+    {
+      "rank": 269,
+      "name": "Republic Services",
+      "profile": "https://fortune.com/company/republic-services/"
+    },
+    {
+      "rank": 270,
+      "name": "Markel Group",
+      "profile": "https://fortune.com/company/markel/"
+    },
+    {
+      "rank": 271,
+      "name": "Farmers Insurance Exchange",
+      "profile": "https://fortune.com/company/farmers-insurance-exchange/"
+    },
+    {
+      "rank": 272,
+      "name": "Dominion Energy",
+      "profile": "https://fortune.com/company/dominion-resources/"
+    },
+    {
+      "rank": 273,
+      "name": "Land O'Lakes",
+      "profile": "https://fortune.com/company/land-olakes/"
+    },
+    {
+      "rank": 274,
+      "name": "IQVIA Holdings",
+      "profile": "https://fortune.com/company/quintiles-ims-holdings/"
+    },
+    {
+      "rank": 275,
+      "name": "Fox",
+      "profile": "https://fortune.com/company/fox/"
+    },
+    {
+      "rank": 276,
+      "name": "AECOM",
+      "profile": "https://fortune.com/company/aecom/"
+    },
+    {
+      "rank": 277,
+      "name": "C.H. Robinson Worldwide",
+      "profile": "https://fortune.com/company/c-h-robinson-worldwide/"
+    },
+    {
+      "rank": 278,
+      "name": "Bitgo Holdings",
+      "profile": "https://fortune.com/company/bitgo-holdings/"
+    },
+    {
+      "rank": 279,
+      "name": "United Rentals",
+      "profile": "https://fortune.com/company/united-rentals/"
+    },
+    {
+      "rank": 280,
+      "name": "Ecolab",
+      "profile": "https://fortune.com/company/ecolab/"
+    },
+    {
+      "rank": 281,
+      "name": "Illinois Tool Works",
+      "profile": "https://fortune.com/company/illinois-tool-works/"
+    },
+    {
+      "rank": 282,
+      "name": "Casey's General Stores",
+      "profile": "https://fortune.com/company/caseys-general-stores/"
+    },
+    {
+      "rank": 283,
+      "name": "Raymond James Financial",
+      "profile": "https://fortune.com/company/raymond-james-financial/"
+    },
+    {
+      "rank": 284,
+      "name": "PPG Industries",
+      "profile": "https://fortune.com/company/ppg-industries/"
+    },
+    {
+      "rank": 285,
+      "name": "DTE Energy",
+      "profile": "https://fortune.com/company/dte-energy/"
+    },
+    {
+      "rank": 286,
+      "name": "Corning",
+      "profile": "https://fortune.com/company/corning/"
+    },
+    {
+      "rank": 287,
+      "name": "Principal Financial",
+      "profile": "https://fortune.com/company/principal-financial/"
+    },
+    {
+      "rank": 288,
+      "name": "Mutual of Omaha",
+      "profile": "https://fortune.com/company/mutual-of-omaha-insurance/"
+    },
+    {
+      "rank": 289,
+      "name": "Kohl's",
+      "profile": "https://fortune.com/company/kohls/"
+    },
+    {
+      "rank": 290,
+      "name": "Tractor Supply",
+      "profile": "https://fortune.com/company/tractor-supply/"
+    },
+    {
+      "rank": 291,
+      "name": "Whirlpool",
+      "profile": "https://fortune.com/company/whirlpool/"
+    },
+    {
+      "rank": 292,
+      "name": "Fluor",
+      "profile": "https://fortune.com/company/fluor/"
+    },
+    {
+      "rank": 293,
+      "name": "Gap",
+      "profile": "https://fortune.com/company/gap/"
+    },
+    {
+      "rank": 294,
+      "name": "S&P Global",
+      "profile": "https://fortune.com/company/sp-global/"
+    },
+    {
+      "rank": 295,
+      "name": "Ally Financial",
+      "profile": "https://fortune.com/company/ally-financial/"
+    },
+    {
+      "rank": 296,
+      "name": "Builders FirstSource",
+      "profile": "https://fortune.com/company/builders-firstsource/"
+    },
+    {
+      "rank": 297,
+      "name": "Sonic Automotive",
+      "profile": "https://fortune.com/company/sonic-automotive/"
+    },
+    {
+      "rank": 298,
+      "name": "Stanley Black & Decker",
+      "profile": "https://fortune.com/company/stanley-black-decker/"
+    },
+    {
+      "rank": 299,
+      "name": "Kenvue",
+      "profile": "https://fortune.com/company/kenvue/"
+    },
+    {
+      "rank": 300,
+      "name": "Kyndryl Holdings",
+      "profile": "https://fortune.com/company/kyndryl-holdings/"
+    },
+    {
+      "rank": 301,
+      "name": "Diamondback Energy",
+      "profile": "https://fortune.com/company/diamondback-energy/"
+    },
+    {
+      "rank": 302,
+      "name": "EchoStar",
+      "profile": "https://fortune.com/company/echostar/"
+    },
+    {
+      "rank": 303,
+      "name": "Textron",
+      "profile": "https://fortune.com/company/textron/"
+    },
+    {
+      "rank": 304,
+      "name": "Expedia Group",
+      "profile": "https://fortune.com/company/expedia-group/"
+    },
+    {
+      "rank": 305,
+      "name": "W.R. Berkley",
+      "profile": "https://fortune.com/company/w-r-berkley/"
+    },
+    {
+      "rank": 306,
+      "name": "Xcel Energy",
+      "profile": "https://fortune.com/company/xcel-energy/"
+    },
+    {
+      "rank": 307,
+      "name": "FirstEnergy",
+      "profile": "https://fortune.com/company/firstenergy/"
+    },
+    {
+      "rank": 308,
+      "name": "Erie Insurance Group",
+      "profile": "https://fortune.com/company/erie-insurance-group/"
+    },
+    {
+      "rank": 309,
+      "name": "First Citizens BancShares",
+      "profile": "https://fortune.com/company/first-citizens-bancshares/"
+    },
+    {
+      "rank": 310,
+      "name": "Blackstone",
+      "profile": "https://fortune.com/company/blackstone-group/"
+    },
+    {
+      "rank": 311,
+      "name": "Fidelity National Financial",
+      "profile": "https://fortune.com/company/fidelity-national-financial/"
+    },
+    {
+      "rank": 312,
+      "name": "Otis Worldwide",
+      "profile": "https://fortune.com/company/otis-worldwide/"
+    },
+    {
+      "rank": 313,
+      "name": "Amentum Holdings",
+      "profile": "https://fortune.com/company/amentum-holdings/"
+    },
+    {
+      "rank": 314,
+      "name": "Regeneron Pharmaceuticals",
+      "profile": "https://fortune.com/company/regeneron-pharmaceuticals/"
+    },
+    {
+      "rank": 315,
+      "name": "Estée Lauder",
+      "profile": "https://fortune.com/company/estee-lauder/"
+    },
+    {
+      "rank": 316,
+      "name": "BorgWarner",
+      "profile": "https://fortune.com/company/borgwarner/"
+    },
+    {
+      "rank": 317,
+      "name": "Northern Trust",
+      "profile": "https://fortune.com/company/northern-trust/"
+    },
+    {
+      "rank": 318,
+      "name": "Viatris",
+      "profile": "https://fortune.com/company/viatris/"
+    },
+    {
+      "rank": 319,
+      "name": "MasTec",
+      "profile": "https://fortune.com/company/mastec/"
+    },
+    {
+      "rank": 320,
+      "name": "Reliance",
+      "profile": "https://fortune.com/company/reliance-steel-aluminum/"
+    },
+    {
+      "rank": 321,
+      "name": "Western & Southern Financial Group",
+      "profile": "https://fortune.com/company/western-southern-financial/"
+    },
+    {
+      "rank": 322,
+      "name": "Alaska Air Group",
+      "profile": "https://fortune.com/company/alaska-air-group/"
+    },
+    {
+      "rank": 323,
+      "name": "BrightSpring Health Services",
+      "profile": "https://fortune.com/company/brightspring-health-services/"
+    },
+    {
+      "rank": 324,
+      "name": "CSX",
+      "profile": "https://fortune.com/company/csx/"
+    },
+    {
+      "rank": 325,
+      "name": "LKQ",
+      "profile": "https://fortune.com/company/lkq/"
+    },
+    {
+      "rank": 326,
+      "name": "Labcorp Holdings",
+      "profile": "https://fortune.com/company/laboratory-corp-of-america/"
+    },
+    {
+      "rank": 327,
+      "name": "Arthur J. Gallagher",
+      "profile": "https://fortune.com/company/arthur-j-gallagher/"
+    },
+    {
+      "rank": 328,
+      "name": "Venture Global",
+      "profile": "https://fortune.com/company/venutre-global/"
+    },
+    {
+      "rank": 329,
+      "name": "DoorDash",
+      "profile": "https://fortune.com/company/doordash/"
+    },
+    {
+      "rank": 330,
+      "name": "Sempra",
+      "profile": "https://fortune.com/company/sempra-energy/"
+    },
+    {
+      "rank": 331,
+      "name": "DaVita",
+      "profile": "https://fortune.com/company/davita/"
+    },
+    {
+      "rank": 332,
+      "name": "Eversource Energy",
+      "profile": "https://fortune.com/company/eversource-energy/"
+    },
+    {
+      "rank": 333,
+      "name": "ServiceNow",
+      "profile": "https://fortune.com/company/servicenow/"
+    },
+    {
+      "rank": 334,
+      "name": "M&T Bank",
+      "profile": "https://fortune.com/company/mt-bank-corp/"
+    },
+    {
+      "rank": 335,
+      "name": "Henry Schein",
+      "profile": "https://fortune.com/company/henry-schein/"
+    },
+    {
+      "rank": 336,
+      "name": "GXO Logistics",
+      "profile": "https://fortune.com/company/gxo-logistics/"
+    },
+    {
+      "rank": 337,
+      "name": "Ball",
+      "profile": "https://fortune.com/company/ball/"
+    },
+    {
+      "rank": 338,
+      "name": "Unum Group",
+      "profile": "https://fortune.com/company/unum-group/"
+    },
+    {
+      "rank": 339,
+      "name": "Las Vegas Sands",
+      "profile": "https://fortune.com/company/las-vegas-sands/"
+    },
+    {
+      "rank": 340,
+      "name": "Entergy",
+      "profile": "https://fortune.com/company/entergy/"
+    },
+    {
+      "rank": 341,
+      "name": "Fifth Third Bancorp",
+      "profile": "https://fortune.com/company/fifth-third-bancorp/"
+    },
+    {
+      "rank": 342,
+      "name": "Graybar Electric",
+      "profile": "https://fortune.com/company/graybar-electric/"
+    },
+    {
+      "rank": 343,
+      "name": "DXC Technology",
+      "profile": "https://fortune.com/company/dxc-technology/"
+    },
+    {
+      "rank": 344,
+      "name": "Alcoa",
+      "profile": "https://fortune.com/company/alcoa/"
+    },
+    {
+      "rank": 345,
+      "name": "Assurant",
+      "profile": "https://fortune.com/company/assurant/"
+    },
+    {
+      "rank": 346,
+      "name": "Ryder System",
+      "profile": "https://fortune.com/company/ryder-system/"
+    },
+    {
+      "rank": 347,
+      "name": "Intercontinental Exchange",
+      "profile": "https://fortune.com/company/intercontinental-exchange/"
+    },
+    {
+      "rank": 348,
+      "name": "Cincinnati Financial",
+      "profile": "https://fortune.com/company/cincinnati-financial/"
+    },
+    {
+      "rank": 349,
+      "name": "Chewy",
+      "profile": "https://fortune.com/company/chewy/"
+    },
+    {
+      "rank": 350,
+      "name": "Community Health Systems",
+      "profile": "https://fortune.com/company/community-health-systems/"
+    },
+    {
+      "rank": 351,
+      "name": "Huntington Bancshares",
+      "profile": "https://fortune.com/company/huntington-bancshares/"
+    },
+    {
+      "rank": 352,
+      "name": "Huntington Ingalls Industries",
+      "profile": "https://fortune.com/company/huntington-ingalls-industries/"
+    },
+    {
+      "rank": 353,
+      "name": "Wayfair",
+      "profile": "https://fortune.com/company/wayfair/"
+    },
+    {
+      "rank": 354,
+      "name": "Lumen Technologies",
+      "profile": "https://fortune.com/company/centurylink/"
+    },
+    {
+      "rank": 355,
+      "name": "Ulta Beauty",
+      "profile": "https://fortune.com/company/ulta-beauty/"
+    },
+    {
+      "rank": 356,
+      "name": "Crown Holdings",
+      "profile": "https://fortune.com/company/crown-holdings/"
+    },
+    {
+      "rank": 357,
+      "name": "Airbnb",
+      "profile": "https://fortune.com/company/airbnb/"
+    },
+    {
+      "rank": 358,
+      "name": "AES",
+      "profile": "https://fortune.com/company/aes/"
+    },
+    {
+      "rank": 359,
+      "name": "Norfolk Southern",
+      "profile": "https://fortune.com/company/norfolk-southern/"
+    },
+    {
+      "rank": 360,
+      "name": "Public Service Enterprise Group",
+      "profile": "https://fortune.com/company/public-service-enterprise-group/"
+    },
+    {
+      "rank": 361,
+      "name": "KLA",
+      "profile": "https://fortune.com/company/kla-tencor/"
+    },
+    {
+      "rank": 362,
+      "name": "Expand Energy",
+      "profile": "https://fortune.com/company/chesapeake-energy/"
+    },
+    {
+      "rank": 363,
+      "name": "Hormel Foods",
+      "profile": "https://fortune.com/company/hormel-foods/"
+    },
+    {
+      "rank": 364,
+      "name": "Darden Restaurants",
+      "profile": "https://fortune.com/company/darden-restaurants/"
+    },
+    {
+      "rank": 365,
+      "name": "Citizens Financial Group",
+      "profile": "https://fortune.com/company/citizens-financial-group/"
+    },
+    {
+      "rank": 366,
+      "name": "Mosaic",
+      "profile": "https://fortune.com/company/mosaic/"
+    },
+    {
+      "rank": 367,
+      "name": "Hilton Worldwide Holdings",
+      "profile": "https://fortune.com/company/hilton-worldwide-holdings/"
+    },
+    {
+      "rank": 368,
+      "name": "Air Products & Chemicals",
+      "profile": "https://fortune.com/company/air-products-chemicals/"
+    },
+    {
+      "rank": 369,
+      "name": "Jacobs Solutions",
+      "profile": "https://fortune.com/company/jacobs-engineering-group/"
+    },
+    {
+      "rank": 370,
+      "name": "Vertex Pharmaceuticals",
+      "profile": "https://fortune.com/company/vertex-pharmaceuticals/"
+    },
+    {
+      "rank": 371,
+      "name": "J.B. Hunt Transport Services",
+      "profile": "https://fortune.com/company/j-b-hunt-transport-services/"
+    },
+    {
+      "rank": 372,
+      "name": "Booz Allen Hamilton Holding",
+      "profile": "https://fortune.com/company/booz-allen-hamilton/"
+    },
+    {
+      "rank": 373,
+      "name": "Williams",
+      "profile": "https://fortune.com/company/williams/"
+    },
+    {
+      "rank": 374,
+      "name": "Chipotle Mexican Grill",
+      "profile": "https://fortune.com/company/chipotle-mexican-grill/"
+    },
+    {
+      "rank": 375,
+      "name": "Yum China Holdings",
+      "profile": "https://fortune.com/company/yum-china-holdings/"
+    },
+    {
+      "rank": 376,
+      "name": "Oscar Health",
+      "profile": "https://fortune.com/company/oscar-health/"
+    },
+    {
+      "rank": 377,
+      "name": "Hershey",
+      "profile": "https://fortune.com/company/hershey/"
+    },
+    {
+      "rank": 378,
+      "name": "Motorola Solutions",
+      "profile": "https://fortune.com/company/motorola-solutions/"
+    },
+    {
+      "rank": 379,
+      "name": "Equitable Holdings",
+      "profile": "https://fortune.com/company/equitable-holdings/"
+    },
+    {
+      "rank": 380,
+      "name": "Avis Budget Group",
+      "profile": "https://fortune.com/company/avis-budget-group/"
+    },
+    {
+      "rank": 381,
+      "name": "Conagra Brands",
+      "profile": "https://fortune.com/company/conagra-brands/"
+    },
+    {
+      "rank": 382,
+      "name": "Baxter International",
+      "profile": "https://fortune.com/company/baxter-international/"
+    },
+    {
+      "rank": 383,
+      "name": "Burlington Stores",
+      "profile": "https://fortune.com/company/burlington-stores/"
+    },
+    {
+      "rank": 384,
+      "name": "Caesars Entertainment",
+      "profile": "https://fortune.com/company/eldorado-resorts/"
+    },
+    {
+      "rank": 385,
+      "name": "Owens Corning",
+      "profile": "https://fortune.com/company/owens-corning/"
+    },
+    {
+      "rank": 386,
+      "name": "KeyCorp",
+      "profile": "https://fortune.com/company/keycorp/"
+    },
+    {
+      "rank": 387,
+      "name": "Thrivent Financial",
+      "profile": "https://fortune.com/company/thrivent-financial-for-lutherans/"
+    },
+    {
+      "rank": 388,
+      "name": "Westlake",
+      "profile": "https://fortune.com/company/westlake-chemical/"
+    },
+    {
+      "rank": 389,
+      "name": "Westinghouse Air Brake",
+      "profile": "https://fortune.com/company/westinghouse-air-brake/"
+    },
+    {
+      "rank": 390,
+      "name": "Molson Coors Beverage",
+      "profile": "https://fortune.com/company/molson-coors-brewing/"
+    },
+    {
+      "rank": 391,
+      "name": "Lululemon athletica",
+      "profile": "https://fortune.com/company/lululemon-athletica/"
+    },
+    {
+      "rank": 392,
+      "name": "FM",
+      "profile": "https://fortune.com/company/fm-global/"
+    },
+    {
+      "rank": 393,
+      "name": "Ebay",
+      "profile": "https://fortune.com/company/ebay/"
+    },
+    {
+      "rank": 394,
+      "name": "Expeditors Intl. of Washington",
+      "profile": "https://fortune.com/company/expeditors-intl-of-washington/"
+    },
+    {
+      "rank": 395,
+      "name": "Quest Diagnostics",
+      "profile": "https://fortune.com/company/quest-diagnostics/"
+    },
+    {
+      "rank": 396,
+      "name": "Analog Devices",
+      "profile": "https://fortune.com/company/analog-devices/"
+    },
+    {
+      "rank": 397,
+      "name": "Andersons",
+      "profile": "https://fortune.com/company/andersons/"
+    },
+    {
+      "rank": 398,
+      "name": "Gold.com",
+      "profile": "https://fortune.com/company/a-mark-precious-metals/"
+    },
+    {
+      "rank": 399,
+      "name": "Toll Brothers",
+      "profile": "https://fortune.com/company/toll-brothers/"
+    },
+    {
+      "rank": 400,
+      "name": "International Flavors & Fragrances",
+      "profile": "https://fortune.com/company/international-flavors-fragrances/"
+    },
+    {
+      "rank": 401,
+      "name": "Welltower",
+      "profile": "https://fortune.com/company/welltower/"
+    },
+    {
+      "rank": 402,
+      "name": "Jefferies Financial Group",
+      "profile": "https://fortune.com/company/leucadia-national/"
+    },
+    {
+      "rank": 403,
+      "name": "Autoliv",
+      "profile": "https://fortune.com/company/autoliv/"
+    },
+    {
+      "rank": 404,
+      "name": "Mohawk Industries",
+      "profile": "https://fortune.com/company/mohawk-industries/"
+    },
+    {
+      "rank": 405,
+      "name": "Delek US Holdings",
+      "profile": "https://fortune.com/company/delek-us-holdings/"
+    },
+    {
+      "rank": 406,
+      "name": "Fidelity National Information (FIS)",
+      "profile": "https://fortune.com/company/fidelity-national-information-services/"
+    },
+    {
+      "rank": 407,
+      "name": "Accendra Health",
+      "profile": "https://fortune.com/company/owens-minor/"
+    },
+    {
+      "rank": 408,
+      "name": "American Tower",
+      "profile": "https://fortune.com/company/american-tower/"
+    },
+    {
+      "rank": 409,
+      "name": "NVR",
+      "profile": "https://fortune.com/company/nvr/"
+    },
+    {
+      "rank": 410,
+      "name": "Interactive Brokers Group",
+      "profile": "https://fortune.com/company/interactive-brokers-group/"
+    },
+    {
+      "rank": 411,
+      "name": "Oshkosh",
+      "profile": "https://fortune.com/company/oshkosh/"
+    },
+    {
+      "rank": 412,
+      "name": "Cintas",
+      "profile": "https://fortune.com/company/cintas/"
+    },
+    {
+      "rank": 413,
+      "name": "Campbell's",
+      "profile": "https://fortune.com/company/campbell-soup/"
+    },
+    {
+      "rank": 414,
+      "name": "Vertiv Holdings",
+      "profile": "https://fortune.com/company/vertiv-holdings/"
+    },
+    {
+      "rank": 415,
+      "name": "Global Payments",
+      "profile": "https://fortune.com/company/global-payments/"
+    },
+    {
+      "rank": 416,
+      "name": "Constellation Brands",
+      "profile": "https://fortune.com/company/constellation-brands/"
+    },
+    {
+      "rank": 417,
+      "name": "AGCO",
+      "profile": "https://fortune.com/company/agco/"
+    },
+    {
+      "rank": 418,
+      "name": "Intuitive Surgical",
+      "profile": "https://fortune.com/company/intuitive-surgical/"
+    },
+    {
+      "rank": 419,
+      "name": "Ace Hardware",
+      "profile": "https://fortune.com/company/ace-hardware-corporation/"
+    },
+    {
+      "rank": 420,
+      "name": "Dana",
+      "profile": "https://fortune.com/company/dana/"
+    },
+    {
+      "rank": 421,
+      "name": "Biogen",
+      "profile": "https://fortune.com/company/biogen/"
+    },
+    {
+      "rank": 422,
+      "name": "News Corp.",
+      "profile": "https://fortune.com/company/news-corp/"
+    },
+    {
+      "rank": 423,
+      "name": "Concentrix",
+      "profile": "https://fortune.com/company/concentrix/"
+    },
+    {
+      "rank": 424,
+      "name": "WEC Energy Group",
+      "profile": "https://fortune.com/company/wec-energy-group/"
+    },
+    {
+      "rank": 425,
+      "name": "VF",
+      "profile": "https://fortune.com/company/vf/"
+    },
+    {
+      "rank": 426,
+      "name": "Seaboard",
+      "profile": "https://fortune.com/company/seaboard/"
+    },
+    {
+      "rank": 427,
+      "name": "Icahn Enterprises",
+      "profile": "https://fortune.com/company/icahn-enterprises/"
+    },
+    {
+      "rank": 428,
+      "name": "Regions Financial",
+      "profile": "https://fortune.com/company/regions-financial/"
+    },
+    {
+      "rank": 429,
+      "name": "Thor Industries",
+      "profile": "https://fortune.com/company/thor-industries/"
+    },
+    {
+      "rank": 430,
+      "name": "Workday",
+      "profile": "https://fortune.com/company/workday/"
+    },
+    {
+      "rank": 431,
+      "name": "Celanese",
+      "profile": "https://fortune.com/company/celanese/"
+    },
+    {
+      "rank": 432,
+      "name": "Western Digital",
+      "profile": "https://fortune.com/company/western-digital/"
+    },
+    {
+      "rank": 433,
+      "name": "QVC Group",
+      "profile": "https://fortune.com/company/qurate-retail/"
+    },
+    {
+      "rank": 434,
+      "name": "Zoetis",
+      "profile": "https://fortune.com/company/zoetis/"
+    },
+    {
+      "rank": 435,
+      "name": "CenterPoint Energy",
+      "profile": "https://fortune.com/company/centerpoint-energy/"
+    },
+    {
+      "rank": 436,
+      "name": "Equinix",
+      "profile": "https://fortune.com/company/equinix/"
+    },
+    {
+      "rank": 437,
+      "name": "Palo Alto Networks",
+      "profile": "https://fortune.com/company/palo-alto-networks/"
+    },
+    {
+      "rank": 438,
+      "name": "APA",
+      "profile": "https://fortune.com/company/apache/"
+    },
+    {
+      "rank": 439,
+      "name": "Old Republic International",
+      "profile": "https://fortune.com/company/old-republic-international/"
+    },
+    {
+      "rank": 440,
+      "name": "Comfort Systems USA",
+      "profile": "https://fortune.com/company/comfort-systems-usa/"
+    },
+    {
+      "rank": 441,
+      "name": "JetBlue Airways",
+      "profile": "https://fortune.com/company/jetblue-airways/"
+    },
+    {
+      "rank": 442,
+      "name": "PPL",
+      "profile": "https://fortune.com/company/ppl/"
+    },
+    {
+      "rank": 443,
+      "name": "Xylem",
+      "profile": "https://fortune.com/company/xylem/"
+    },
+    {
+      "rank": 444,
+      "name": "Arista Networks",
+      "profile": "https://fortune.com/company/arista-networks/"
+    },
+    {
+      "rank": 445,
+      "name": "Packaging Corp. of America",
+      "profile": "https://fortune.com/company/packaging-corp-of-america/"
+    },
+    {
+      "rank": 446,
+      "name": "PVH",
+      "profile": "https://fortune.com/company/pvh/"
+    },
+    {
+      "rank": 447,
+      "name": "Ovintiv",
+      "profile": "https://fortune.com/company/ovintiv/"
+    },
+    {
+      "rank": 448,
+      "name": "Avery Dennison",
+      "profile": "https://fortune.com/company/avery-dennison/"
+    },
+    {
+      "rank": 449,
+      "name": "TransDigm Group",
+      "profile": "https://fortune.com/company/transdigm-group/"
+    },
+    {
+      "rank": 450,
+      "name": "Sprouts Farmers Market",
+      "profile": "https://fortune.com/company/sprouts-farmers-market/"
+    },
+    {
+      "rank": 451,
+      "name": "Prologis",
+      "profile": "https://fortune.com/company/prologis/"
+    },
+    {
+      "rank": 452,
+      "name": "Franklin Resources",
+      "profile": "https://fortune.com/company/franklin-resources/"
+    },
+    {
+      "rank": 453,
+      "name": "Eastman Chemical",
+      "profile": "https://fortune.com/company/eastman-chemical/"
+    },
+    {
+      "rank": 454,
+      "name": "ABM Industries",
+      "profile": "https://fortune.com/company/abm-industries/"
+    },
+    {
+      "rank": 455,
+      "name": "NOV",
+      "profile": "https://fortune.com/company/national-oilwell-varco/"
+    },
+    {
+      "rank": 456,
+      "name": "J.M. Smucker",
+      "profile": "https://fortune.com/company/j-m-smucker/"
+    },
+    {
+      "rank": 457,
+      "name": "Securian Financial Group",
+      "profile": "https://fortune.com/company/securian-financial-group/"
+    },
+    {
+      "rank": 458,
+      "name": "EQT",
+      "profile": "https://fortune.com/company/eqt/"
+    },
+    {
+      "rank": 459,
+      "name": "CACI International",
+      "profile": "https://fortune.com/company/caci-international/"
+    },
+    {
+      "rank": 460,
+      "name": "Graphic Packaging Holding",
+      "profile": "https://fortune.com/company/graphic-packaging-holding/"
+    },
+    {
+      "rank": 461,
+      "name": "Advance Auto Parts",
+      "profile": "https://fortune.com/company/advance-auto-parts/"
+    },
+    {
+      "rank": 462,
+      "name": "Optimum Communications",
+      "profile": "https://fortune.com/company/altice-usa/"
+    },
+    {
+      "rank": 463,
+      "name": "Sirius XM Holdings",
+      "profile": "https://fortune.com/company/sirius-xm-holdings/"
+    },
+    {
+      "rank": 464,
+      "name": "CMS Energy",
+      "profile": "https://fortune.com/company/cms-energy/"
+    },
+    {
+      "rank": 465,
+      "name": "Hertz Global Holdings",
+      "profile": "https://fortune.com/company/hertz-global-holdings/"
+    },
+    {
+      "rank": 466,
+      "name": "Ameren",
+      "profile": "https://fortune.com/company/ameren/"
+    },
+    {
+      "rank": 467,
+      "name": "Rockwell Automation",
+      "profile": "https://fortune.com/company/rockwell-automation/"
+    },
+    {
+      "rank": 468,
+      "name": "Solventum",
+      "profile": "https://fortune.com/company/solventum/"
+    },
+    {
+      "rank": 469,
+      "name": "Monster Beverage",
+      "profile": "https://fortune.com/company/monster-beverage/"
+    },
+    {
+      "rank": 470,
+      "name": "Nasdaq",
+      "profile": "https://fortune.com/company/nasdaq/"
+    },
+    {
+      "rank": 471,
+      "name": "Howmet Aerospace",
+      "profile": "https://fortune.com/company/arconic/"
+    },
+    {
+      "rank": 472,
+      "name": "Insight Enterprises",
+      "profile": "https://fortune.com/company/insight-enterprises/"
+    },
+    {
+      "rank": 473,
+      "name": "Zimmer Biomet Holdings",
+      "profile": "https://fortune.com/company/zimmer-biomet-holdings-3/"
+    },
+    {
+      "rank": 474,
+      "name": "Yum Brands",
+      "profile": "https://fortune.com/company/yum-brands/"
+    },
+    {
+      "rank": 475,
+      "name": "Fastenal",
+      "profile": "https://fortune.com/company/fastenal/"
+    },
+    {
+      "rank": 476,
+      "name": "Marvell Technology",
+      "profile": "https://fortune.com/company/marvell-technology/"
+    },
+    {
+      "rank": 477,
+      "name": "Voya Financial",
+      "profile": "https://fortune.com/company/voya-financial/"
+    },
+    {
+      "rank": 478,
+      "name": "American Financial Group",
+      "profile": "https://fortune.com/company/american-financial-group/"
+    },
+    {
+      "rank": 479,
+      "name": "Post Holdings",
+      "profile": "https://fortune.com/company/post-holdings/"
+    },
+    {
+      "rank": 480,
+      "name": "XPO",
+      "profile": "https://fortune.com/company/xpo-logistics/"
+    },
+    {
+      "rank": 481,
+      "name": "DuPont",
+      "profile": "https://fortune.com/company/dow-chemical/"
+    },
+    {
+      "rank": 482,
+      "name": "Sanmina",
+      "profile": "https://fortune.com/company/sanmina/"
+    },
+    {
+      "rank": 483,
+      "name": "Taylor Morrison Home",
+      "profile": "https://fortune.com/company/taylor-morrison-home/"
+    },
+    {
+      "rank": 484,
+      "name": "Dover",
+      "profile": "https://fortune.com/company/dover/"
+    },
+    {
+      "rank": 485,
+      "name": "Vulcan Materials",
+      "profile": "https://fortune.com/company/vulcan-materials/"
+    },
+    {
+      "rank": 486,
+      "name": "APi Group",
+      "profile": "https://fortune.com/company/api-group/"
+    },
+    {
+      "rank": 487,
+      "name": "Roper Technologies",
+      "profile": "https://fortune.com/company/roper-technologies/"
+    },
+    {
+      "rank": 488,
+      "name": "KBR",
+      "profile": "https://fortune.com/company/kbr/"
+    },
+    {
+      "rank": 489,
+      "name": "Sonoco Products",
+      "profile": "https://fortune.com/company/sonoco-products/"
+    },
+    {
+      "rank": 490,
+      "name": "Williams-Sonoma",
+      "profile": "https://fortune.com/company/williams-sonoma/"
+    },
+    {
+      "rank": 491,
+      "name": "Commercial Metals",
+      "profile": "https://fortune.com/company/commercial-metals/"
+    },
+    {
+      "rank": 492,
+      "name": "Moody's",
+      "profile": "https://fortune.com/company/moodys/"
+    },
+    {
+      "rank": 493,
+      "name": "Continental Resources",
+      "profile": "https://fortune.com/company/continental-resources/"
+    },
+    {
+      "rank": 494,
+      "name": "Ingersoll Rand",
+      "profile": "https://fortune.com/company/gardner-denver/"
+    },
+    {
+      "rank": 495,
+      "name": "Core & Main",
+      "profile": "https://fortune.com/company/core-main/"
+    },
+    {
+      "rank": 496,
+      "name": "Coterra Energy",
+      "profile": "https://fortune.com/company/coterra-energy/"
+    },
+    {
+      "rank": 497,
+      "name": "Primoris Services",
+      "profile": "https://fortune.com/company/primoris-services/"
+    },
+    {
+      "rank": 498,
+      "name": "Masco",
+      "profile": "https://fortune.com/company/masco/"
+    },
+    {
+      "rank": 499,
+      "name": "Somnigroup International",
+      "profile": "https://fortune.com/company/tempur-sealy-international/"
+    },
+    {
+      "rank": 500,
+      "name": "Resideo Technologies",
+      "profile": "https://fortune.com/company/resideo-technologies/"
+    }
+  ]
+}
