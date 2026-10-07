@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS companies (
   active BOOLEAN NOT NULL DEFAULT TRUE,
   fortune_500 BOOLEAN,
   sp_500 BOOLEAN,
+  source_provenance JSONB NOT NULL DEFAULT '[]',
+  employer_score SMALLINT NOT NULL DEFAULT 50 CHECK (employer_score BETWEEN 0 AND 100),
+  scan_lease_until TIMESTAMPTZ,
+  scan_lease_owner TEXT,
   tech_departments TEXT[] NOT NULL DEFAULT '{}',
   last_checked_at TIMESTAMPTZ,
   last_success_at TIMESTAMPTZ,
@@ -78,6 +82,19 @@ CREATE TABLE IF NOT EXISTS scan_runs (
   metadata JSONB NOT NULL DEFAULT '{}'
 );
 
+CREATE TABLE IF NOT EXISTS company_rankings (
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE, list_name TEXT NOT NULL, list_year INTEGER NOT NULL, rank INTEGER, source_url TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(company_id,list_name,list_year)
+);
+CREATE TABLE IF NOT EXISTS company_jobs (
+  id TEXT PRIMARY KEY, company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE, career_source_id TEXT REFERENCES career_sources(id) ON DELETE SET NULL,
+  title TEXT NOT NULL, canonical_url TEXT NOT NULL UNIQUE, apply_url TEXT, external_job_id TEXT, location TEXT, description_hash TEXT, content_fingerprint TEXT NOT NULL,
+  posting_status TEXT NOT NULL DEFAULT 'open', first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(), last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  changed_at TIMESTAMPTZ, handed_to_gate_at TIMESTAMPTZ, metadata JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS company_jobs_company_idx ON company_jobs(company_id, posting_status, last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS company_jobs_fingerprint_idx ON company_jobs(content_fingerprint);
+CREATE INDEX IF NOT EXISTS company_rankings_list_idx ON company_rankings(list_name,list_year,rank);
 CREATE TABLE IF NOT EXISTS internship_discoveries (
   id TEXT PRIMARY KEY,
   company_id TEXT REFERENCES companies(id) ON DELETE SET NULL,
@@ -99,6 +116,7 @@ CREATE TABLE IF NOT EXISTS internship_discoveries (
 );
 
 CREATE INDEX IF NOT EXISTS companies_due_idx ON companies(active, next_check_at, priority);
+CREATE INDEX IF NOT EXISTS companies_employer_due_idx ON companies(active, employer_score DESC, next_check_at, priority);
 CREATE INDEX IF NOT EXISTS companies_name_idx ON companies(canonical_name);
 CREATE INDEX IF NOT EXISTS career_sources_company_idx ON career_sources(company_id, active);
 CREATE INDEX IF NOT EXISTS career_sources_host_idx ON career_sources(host, active);
@@ -215,6 +233,24 @@ const server = http.createServer(async (req,res) => {
       return json(res,200,{ok:true,generated_at:new Date().toISOString(),summary:s.rows[0],companies:c.rows});
     }
     if (!(await authorized(req))) return json(res,401,{error:"unauthorized"});
+    if (req.method === "POST" && url.pathname === "/v1/companies/lease") {
+      const b=await readBody(req), limit=Math.max(1,Math.min(100,Number(b.limit||10))), owner=String(b.owner||"scanner").slice(0,120), leaseSeconds=Math.max(30,Math.min(1800,Number(b.lease_seconds||300)));
+      const q=await pool.query(`WITH due AS (SELECT id FROM companies WHERE active AND (next_check_at IS NULL OR next_check_at<=now()) AND (scan_lease_until IS NULL OR scan_lease_until<now()) ORDER BY priority,employer_score DESC,next_check_at NULLS FIRST,updated_at FOR UPDATE SKIP LOCKED LIMIT $1)
+      UPDATE companies c SET scan_lease_until=now()+($2 || ' seconds')::interval,scan_lease_owner=$3,updated_at=now() FROM due WHERE c.id=due.id RETURNING c.*`,[limit,String(leaseSeconds),owner]);
+      return json(res,200,{ok:true,leased:q.rows.length,companies:q.rows});
+    }
+    if (req.method === "POST" && url.pathname === "/v1/company-rankings/upsert") {
+      const b=await readBody(req); if(!b.company_id||!b.list_name||!b.list_year) return json(res,422,{error:"company_id, list_name and list_year required"});
+      const q=await pool.query(`INSERT INTO company_rankings(company_id,list_name,list_year,rank,source_url,metadata) VALUES($1,$2,$3,$4,$5,COALESCE($6,'{}'::jsonb)) ON CONFLICT(company_id,list_name,list_year) DO UPDATE SET rank=EXCLUDED.rank,source_url=EXCLUDED.source_url,metadata=EXCLUDED.metadata RETURNING *`,[b.company_id,b.list_name,b.list_year,b.rank??null,b.source_url??null,b.metadata??{}]);
+      return json(res,200,{ok:true,ranking:q.rows[0]});
+    }
+    if (req.method === "POST" && url.pathname === "/v1/company-jobs/upsert") {
+      const b=await readBody(req); if(!b.company_id||!b.title||!(b.canonical_url||b.apply_url)) return json(res,422,{error:"company_id, title and canonical_url/apply_url required"});
+      const canonical=String(b.canonical_url||b.apply_url), fingerprint=b.content_fingerprint||crypto.createHash("sha256").update([b.title,b.location||"",b.description_hash||"",canonical].join("|")).digest("hex"), id=b.id||"job_"+crypto.createHash("sha256").update(canonical).digest("hex").slice(0,20);
+      const prev=await pool.query("SELECT content_fingerprint FROM company_jobs WHERE canonical_url=$1",[canonical]), changed=!!prev.rows[0]&&prev.rows[0].content_fingerprint!==fingerprint;
+      const q=await pool.query(`INSERT INTO company_jobs(id,company_id,career_source_id,title,canonical_url,apply_url,external_job_id,location,description_hash,content_fingerprint,posting_status,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,COALESCE($11,'open'),COALESCE($12,'{}'::jsonb)) ON CONFLICT(canonical_url) DO UPDATE SET title=EXCLUDED.title,apply_url=EXCLUDED.apply_url,external_job_id=EXCLUDED.external_job_id,location=EXCLUDED.location,description_hash=EXCLUDED.description_hash,content_fingerprint=EXCLUDED.content_fingerprint,posting_status=EXCLUDED.posting_status,last_seen_at=now(),changed_at=CASE WHEN company_jobs.content_fingerprint<>EXCLUDED.content_fingerprint THEN now() ELSE company_jobs.changed_at END,metadata=EXCLUDED.metadata RETURNING *`,[id,b.company_id,b.career_source_id??null,b.title,canonical,b.apply_url??canonical,b.external_job_id??null,b.location??null,b.description_hash??null,fingerprint,b.posting_status??"open",b.metadata??{}]);
+      return json(res,200,{ok:true,job:q.rows[0],created:!prev.rows[0],changed});
+    }
     if (req.method === "POST" && url.pathname === "/v1/companies/upsert") {
       const b=await readBody(req);
       const existing=await resolveCompany(b);
@@ -222,15 +258,15 @@ const server = http.createServer(async (req,res) => {
       const canonical=b.canonical_name || b.name;
       if (!canonical) return json(res,422,{error:"canonical_name required"});
       const q=await pool.query(`INSERT INTO companies
-        (id,canonical_name,legal_name,parent_company,state,country,website,industry,technical_employer,priority,active,fortune_500,sp_500,tech_departments,updated_at)
-        VALUES ($1,$2,$3,$4,$5,COALESCE($6,'US'),$7,$8,COALESCE($9,true),COALESCE($10,3),COALESCE($11,true),$12,$13,COALESCE($14::text[],'{}'::text[]),now())
+        (id,canonical_name,legal_name,parent_company,state,country,website,industry,technical_employer,priority,active,fortune_500,sp_500,source_provenance,employer_score,tech_departments,updated_at)
+        VALUES ($1,$2,$3,$4,$5,COALESCE($6,'US'),$7,$8,COALESCE($9,true),COALESCE($10,3),COALESCE($11,true),$12,$13,COALESCE($14,'[]'::jsonb),COALESCE($15,50),COALESCE($16::text[],'{}'::text[]),now())
         ON CONFLICT(id) DO UPDATE SET canonical_name=EXCLUDED.canonical_name,legal_name=EXCLUDED.legal_name,parent_company=EXCLUDED.parent_company,
         state=EXCLUDED.state,country=EXCLUDED.country,website=EXCLUDED.website,industry=EXCLUDED.industry,
         technical_employer=EXCLUDED.technical_employer,priority=EXCLUDED.priority,active=EXCLUDED.active,
-        fortune_500=EXCLUDED.fortune_500,sp_500=EXCLUDED.sp_500,tech_departments=EXCLUDED.tech_departments,updated_at=now()
+        fortune_500=EXCLUDED.fortune_500,sp_500=EXCLUDED.sp_500,source_provenance=EXCLUDED.source_provenance,employer_score=EXCLUDED.employer_score,tech_departments=EXCLUDED.tech_departments,updated_at=now()
         RETURNING *`,
         [id,canonical,b.legal_name??null,b.parent_company??null,b.state??null,b.country??"US",b.website??null,b.industry??null,
-         b.technical_employer!==false,b.priority??3,b.active!==false,b.fortune_500??null,b.sp_500??null,b.tech_departments??[]]);
+         b.technical_employer!==false,b.priority??3,b.active!==false,b.fortune_500??null,b.sp_500??null,b.source_provenance??[],b.employer_score??50,b.tech_departments??[]]);
       const aliases=[b.name,b.canonical_name,b.legal_name,...(Array.isArray(b.aliases)?b.aliases:[])].filter(Boolean);
       for(const alias of [...new Set(aliases)]) await pool.query("INSERT INTO company_aliases(company_id,alias,alias_type) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[id,String(alias),"name"]);
       return json(res,200,{ok:true,company:q.rows[0],matched_existing:!!existing,created:!existing});
@@ -247,6 +283,7 @@ const server = http.createServer(async (req,res) => {
             last_success_at=CASE WHEN $2 THEN now() ELSE last_success_at END,
             next_check_at=now()+($3 || ' hours')::interval,
             consecutive_failures=CASE WHEN $2 THEN 0 ELSE consecutive_failures+1 END,
+            scan_lease_until=NULL,scan_lease_owner=NULL,
             updated_at=now()
         WHERE id=$1 RETURNING *`,[b.company_id,ok,String(ok?hours:1)]);
       return json(res,200,{ok:true,company:q.rows[0]});
